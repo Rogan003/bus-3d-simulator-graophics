@@ -254,12 +254,34 @@ int main()
 
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 
+    glCullFace(GL_BACK);
+
     while (!glfwWindowShouldClose(window))
     {
         double initFrameTime = glfwGetTime();
 
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
+
+        //Testiranje dubine
+        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+        {
+            glEnable(GL_DEPTH_TEST); //Ukljucivanje testiranja Z bafera
+        }
+        if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+        {
+            glDisable(GL_DEPTH_TEST);
+        }
+
+        //Odstranjivanje lica (Prethodno smo podesili koje lice uklanjamo sa glCullFace)
+        if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
+        {
+            glDisable(GL_CULL_FACE);
+        }
 
         glClear(GL_COLOR_BUFFER_BIT);
 
