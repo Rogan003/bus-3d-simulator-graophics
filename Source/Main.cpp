@@ -6,8 +6,6 @@
 
 #include "../Header/Util.h"
 
-#define NUM_SLICES 40
-
 struct Character {
     unsigned int TextureID;
     int SizeX, SizeY;
