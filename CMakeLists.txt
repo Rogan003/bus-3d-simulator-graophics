@@ -14,8 +14,8 @@ find_package(Freetype REQUIRED)
 find_package(glm CONFIG REQUIRED)
 
 add_executable(Projekat3D
-        main.cpp
-        Util.cpp
+        Source/Main.cpp
+        Source/Util.cpp
 )
 
 target_include_directories(Projekat3D PRIVATE
