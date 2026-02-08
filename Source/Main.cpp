@@ -399,6 +399,7 @@ int main()
     Shader unifiedShader("../Shaders/basic.vert", "../Shaders/basic.frag");
 
     Model tree("../Resources/tree/Tree.obj");
+    Model wheel("../Resources/wheel/merc steering.obj");
 
     camera.Position = glm::vec3(-1.0f, 0.5f, -4.0f);
 
@@ -520,6 +521,14 @@ int main()
         model = glm::scale(model, glm::vec3(1.0f, 0.6f, 0.1f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Steering Wheel
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-1.0f, 0.0f, -4.4f));
+        model = glm::rotate(model, glm::radians(-20.0f), glm::vec3(1.0f, 0.0f, 0.0f)); 
+        model = glm::scale(model, glm::vec3(0.11f));
+        unifiedShader.setMat4("uM", model);
+        wheel.Draw(unifiedShader);
 
         // Windshield (Transparent)
         glEnable(GL_BLEND);
