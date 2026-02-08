@@ -441,6 +441,27 @@ int main()
             key2Pressed = false;
         }
 
+        static bool doorOpen = false;
+        static float doorProgress = 0.0f; // 0.0 = closed, 1.0 = open
+        static bool oKeyPressed = false;
+        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
+            if (!oKeyPressed) {
+                doorOpen = !doorOpen;
+                oKeyPressed = true;
+            }
+        } else {
+            oKeyPressed = false;
+        }
+
+        float doorSpeed = 2.0f; 
+        if (doorOpen) {
+            doorProgress += deltaTime * doorSpeed;
+            if (doorProgress > 1.0f) doorProgress = 1.0f;
+        } else {
+            doorProgress -= deltaTime * doorSpeed;
+            if (doorProgress < 0.0f) doorProgress = 0.0f;
+        }
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         unifiedShader.use();
@@ -510,7 +531,18 @@ int main()
         // Door
         glBindTexture(GL_TEXTURE_2D, doorTex);
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(2.0f, 0.5f, -4.0f));
+        // Position the door at its hinge (the edge towards the front of the bus)
+        // Original center was (2.0f, 0.5f, -4.0f) with scale (0.1, 3.0, 2.0).
+        // The hinge should be at the front edge: Z = -4.0 - 1.0 = -5.0? No, wait.
+        // Scale is 2.0 in Z, so it spans from -5.0 to -3.0. 
+        // Let's place hinge at Z = -3.0 (towards the back) or Z = -5.0 (towards the front).
+        // Usually bus doors open outwards or inwards hinged at one side.
+        
+        float doorAngle = doorProgress * -90.0f; // Opens 90 degrees outwards
+        
+        model = glm::translate(model, glm::vec3(2.0f, 0.5f, -3.0f)); // Move to hinge position (back edge of the door)
+        model = glm::rotate(model, glm::radians(doorAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -1.0f)); // Move back so the hinge is at the edge
         model = glm::scale(model, glm::vec3(0.1f, 3.0f, 2.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
