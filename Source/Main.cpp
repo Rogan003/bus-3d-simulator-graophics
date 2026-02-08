@@ -259,11 +259,11 @@ int main()
     unifiedShader.setVec3("uLightColor", 1, 1, 1);
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)mode->width / (float)mode->height, 0.1f, 100.0f);
     unifiedShader.setMat4("uP", projection);
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 15.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 10.0f, 25.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     unifiedShader.setMat4("uV", view);
     glm::mat4 model = glm::mat4(1.0f);
 
-    Model tree("../Resources/tree/Lowpoly_tree_sample.obj");
+    Model tree("../Resources/tree/Tree.obj");
 
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 
