@@ -401,6 +401,7 @@ int main()
 
     Model tree("../Resources/tree/Tree.obj");
     Model wheel("../Resources/wheel/merc steering.obj");
+    Model person("../Resources/person1/model.obj");
 
     camera.Position = glm::vec3(-1.0f, 0.5f, -4.0f);
 
@@ -554,6 +555,14 @@ int main()
         model = glm::scale(model, glm::vec3(1.0f, 0.6f, 0.1f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Person outside the door
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(3.5f, -1.0f, -4.0f)); // Just outside the door area
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // Face the bus
+        model = glm::scale(model, glm::vec3(1.0f)); // Model is already ~1.85 units tall
+        unifiedShader.setMat4("uM", model);
+        person.Draw(unifiedShader);
 
         // Steering Wheel
         glActiveTexture(GL_TEXTURE0);
