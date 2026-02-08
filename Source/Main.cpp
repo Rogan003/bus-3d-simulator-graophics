@@ -393,6 +393,7 @@ int main()
     unsigned int busColorTex = createColorTexture(0.3f, 0.3f, 0.3f); // Grey-ish bus
     unsigned int windshieldTex = createColorTexture(0.1f, 0.1f, 0.1f, 0.5f); // Dark transparent
     unsigned int controlPanelTex = createColorTexture(1.0f, 0.0f, 0.0f); // Red
+    unsigned int wheelTex = createColorTexture(0.15f, 0.15f, 0.15f); // Dark gray
     unsigned int doorTex = createColorTexture(0.2f, 0.6f, 0.3f); // Dark doors
     unsigned int lightTex = createColorTexture(lightColor.r, lightColor.g, lightColor.b); // Light source color
 
@@ -523,6 +524,8 @@ int main()
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         // Steering Wheel
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, wheelTex);
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(-1.0f, 0.0f, -4.4f));
         model = glm::rotate(model, glm::radians(-20.0f), glm::vec3(1.0f, 0.0f, 0.0f)); 
