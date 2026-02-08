@@ -12,6 +12,7 @@ find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(glm CONFIG REQUIRED)
+find_package(assimp REQUIRED)
 
 add_executable(Projekat3D
         Source/Main.cpp
@@ -32,4 +33,5 @@ target_link_libraries(Projekat3D
         OpenGL::GL
         ${FREETYPE_LIBRARIES}
         glm::glm
+        assimp::assimp
 )

@@ -4,6 +4,7 @@
 #include FT_FREETYPE_H
 #include <map>
 
+#include "model.hpp"
 #include "../Header/Util.h"
 
 struct Character {
@@ -250,9 +251,25 @@ int main()
     unsigned int VAOsignature;
     formVAOTexture(verticesSignature, sizeof(verticesSignature), VAOsignature);
 
+    Shader unifiedShader("../Shaders/basic.vert", "../Shaders/basic.frag");
+
+    unifiedShader.use();
+    unifiedShader.setVec3("uLightPos", 0, 1, 3);
+    unifiedShader.setVec3("uViewPos", 0, 0, 5);
+    unifiedShader.setVec3("uLightColor", 1, 1, 1);
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)mode->width / (float)mode->height, 0.1f, 100.0f);
+    unifiedShader.setMat4("uP", projection);
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    unifiedShader.setMat4("uV", view);
+    glm::mat4 model = glm::mat4(1.0f);
+
+    Model tree("../Resources/tree/low-poly-fox.obj");
+
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 
     glCullFace(GL_BACK);
+
+    glEnable(GL_DEPTH_TEST);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -281,7 +298,12 @@ int main()
             glDisable(GL_CULL_FACE);
         }
 
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Osvjezavamo i Z bafer i bafer boje
+
+        model = glm::rotate(model, glm::radians(0.1f), glm::vec3(0.0f, 1.0f, 0.0f));
+        unifiedShader.setMat4("uM", model);
+
+        tree.Draw(unifiedShader);
 
         drawSignature(simpleTextureShader, VAOsignature);
 

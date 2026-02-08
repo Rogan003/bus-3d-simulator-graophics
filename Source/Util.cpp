@@ -148,7 +148,7 @@ GLFWcursor* loadImageToCursor(const char* filePath) {
         image.height = TextureHeight;
         image.pixels = ImageData;
 
-        // Tacka na površini slike kursora koja se ponaša kao hitboks, moze se menjati po potrebi
+        // Tacka na povrï¿½ini slike kursora koja se ponaï¿½a kao hitboks, moze se menjati po potrebi
         // Trenutno je gornji levi ugao, odnosno na 20% visine i 20% sirine slike kursora
         int hotspotX = TextureWidth / 5;
         int hotspotY = TextureHeight / 5;
