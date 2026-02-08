@@ -402,6 +402,7 @@ int main()
     Model tree("../Resources/tree/Tree.obj");
     Model wheel("../Resources/wheel/merc steering.obj");
     Model person("../Resources/person1/model.obj");
+    Model cigarette("../Resources/cigarette/CHAHIN_CIGARETTE_BUTT.obj");
 
     camera.Position = glm::vec3(-1.0f, 0.5f, -4.0f);
 
@@ -581,6 +582,36 @@ int main()
         
         unifiedShader.setMat4("uM", model);
         wheel.Draw(unifiedShader);
+
+        // Cigarette
+        model = glm::mat4(1.0f);
+        // Base position near the right side of the wheel (slightly lower: 0.45f -> 0.42f)
+        glm::vec3 cigaretteBasePos = glm::vec3(-0.7f, 0.38f, -4.6f);
+        // Camera (driver's face) is roughly at (-1.0f, 0.5f, -4.0f)
+        glm::vec3 cigaretteTargetPos = glm::vec3(-0.95f, 0.38f, -4.15f);
+
+        float smokingCycle = 10.0f; // total cycle in seconds
+        float currentTime = (float)glfwGetTime();
+        float timeInCycle = fmod(currentTime, smokingCycle);
+        
+        float smokingDuration = 3.0f; // how long it takes to move to face and back
+        glm::vec3 currentCigarettePos = cigaretteBasePos;
+
+        if (timeInCycle < smokingDuration) {
+            // Normalize time in smoking duration to [0, 1]
+            float t = timeInCycle / smokingDuration;
+            // Use a smooth movement (sinusoidal) for back and forth
+            // sin(0) = 0, sin(pi/2) = 1 (at face), sin(pi) = 0 (back)
+            float moveFactor = sin(t * 3.14159f); 
+            currentCigarettePos = glm::mix(cigaretteBasePos, cigaretteTargetPos, moveFactor);
+        }
+
+        model = glm::translate(model, currentCigarettePos);
+        model = glm::rotate(model, glm::radians(50.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::rotate(model, glm::radians(-45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.3f));
+        unifiedShader.setMat4("uM", model);
+        cigarette.Draw(unifiedShader);
 
         // Windshield (Transparent)
         glEnable(GL_BLEND);
