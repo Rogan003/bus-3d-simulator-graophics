@@ -17,6 +17,7 @@ find_package(assimp REQUIRED)
 add_executable(Projekat3D
         Source/Main.cpp
         Source/Util.cpp
+        Source/camera.hpp
 )
 
 target_include_directories(Projekat3D PRIVATE

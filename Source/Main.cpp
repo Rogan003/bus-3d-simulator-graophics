@@ -3,9 +3,49 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <map>
+#include <iostream>
+#include <vector>
+#include <ctime>
+#include <cstdlib>
 
 #include "model.hpp"
+#include "camera.hpp"
 #include "../Header/Util.h"
+
+// settings
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
+
+// camera
+Camera camera(glm::vec3(0.0f, 0.0f, 5.0f));
+float lastX = SCR_WIDTH / 2.0f;
+float lastY = SCR_HEIGHT / 2.0f;
+bool firstMouse = true;
+
+// timing
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
+{
+    float xpos = static_cast<float>(xposIn);
+    float ypos = static_cast<float>(yposIn);
+
+    if (firstMouse)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+    lastX = xpos;
+    lastY = ypos;
+
+    camera.ProcessMouseMovement(xoffset, yoffset);
+}
 
 struct Character {
     unsigned int TextureID;
@@ -94,6 +134,70 @@ void formVAOPositionOnly(float* vertices, size_t size, unsigned int& vao) {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 }
+
+void formVAO3D(float* vertices, size_t size, unsigned int& vao, unsigned int& vbo) {
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
+
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // normal attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    // texture coord attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+}
+
+float cubeVertices[] = {
+    // positions          // normals           // texture coords
+    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+
+    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
+
+    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+
+     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+
+    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+
+    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
+};
 
 unsigned signatureTex;
 
@@ -214,6 +318,27 @@ void renderText(unsigned int shader, std::string text, float x, float y, float s
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+unsigned int createColorTexture(float r, float g, float b, float a = 1.0f) {
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    unsigned char data[] = {
+        static_cast<unsigned char>(r * 255),
+        static_cast<unsigned char>(g * 255),
+        static_cast<unsigned char>(b * 255),
+        static_cast<unsigned char>(a * 255)
+    };
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    return textureID;
+}
+
 int main()
 {
     srand(time(NULL));
@@ -229,6 +354,8 @@ int main()
     GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "Bus 3D Simulator", monitor, NULL);
     if (window == NULL) return endProgram("Prozor nije uspeo da se kreira.");
     glfwMakeContextCurrent(window);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     if (glewInit() != GLEW_OK) return endProgram("GLEW nije uspeo da se inicijalizuje.");
 
@@ -251,65 +378,128 @@ int main()
     unsigned int VAOsignature;
     formVAOTexture(verticesSignature, sizeof(verticesSignature), VAOsignature);
 
-    Shader unifiedShader("../Shaders/basic.vert", "../Shaders/basic.frag");
+    unsigned int cubeVAO, cubeVBO;
+    formVAO3D(cubeVertices, sizeof(cubeVertices), cubeVAO, cubeVBO);
 
-    unifiedShader.use();
-    unifiedShader.setVec3("uLightPos", 0, 1, 3);
-    unifiedShader.setVec3("uViewPos", 0, 0, 5);
-    unifiedShader.setVec3("uLightColor", 1, 1, 1);
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)mode->width / (float)mode->height, 0.1f, 100.0f);
-    unifiedShader.setMat4("uP", projection);
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 10.0f, 25.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    unifiedShader.setMat4("uV", view);
-    glm::mat4 model = glm::mat4(1.0f);
+    unsigned int busColorTex = createColorTexture(0.3f, 0.3f, 0.3f); // Grey-ish bus
+    unsigned int windshieldTex = createColorTexture(0.1f, 0.1f, 0.1f, 0.5f); // Dark transparent
+    unsigned int controlPanelTex = createColorTexture(1.0f, 0.0f, 0.0f); // Red
+    unsigned int doorTex = createColorTexture(0.2f, 0.6f, 0.3f); // Dark doors
+
+    Shader unifiedShader("../Shaders/basic.vert", "../Shaders/basic.frag");
 
     Model tree("../Resources/tree/Tree.obj");
 
-    glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+    camera.Position = glm::vec3(-1.0f, 0.5f, -4.0f);
 
-    glCullFace(GL_BACK);
-
+    glClearColor(0.3f, 0.4f, 0.8f, 1.0f); // kind of sky color
     glEnable(GL_DEPTH_TEST);
 
     while (!glfwWindowShouldClose(window))
     {
-        double initFrameTime = glfwGetTime();
+        float currentFrame = static_cast<float>(glfwGetTime());
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
 
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
 
-        //Testiranje dubine
-        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
-        {
-            glEnable(GL_DEPTH_TEST); //Ukljucivanje testiranja Z bafera
-        }
-        if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
-        {
-            glDisable(GL_DEPTH_TEST);
-        }
-
-        //Odstranjivanje lica (Prethodno smo podesili koje lice uklanjamo sa glCullFace)
-        if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
-        {
-            glEnable(GL_CULL_FACE);
-        }
-        if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
-        {
-            glDisable(GL_CULL_FACE);
-        }
-
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Osvjezavamo i Z bafer i bafer boje
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         unifiedShader.use();
+        unifiedShader.setVec3("uLightPos", 0, 5, 5);
+        unifiedShader.setVec3("uViewPos", camera.Position);
+        unifiedShader.setVec3("uLightColor", 1, 1, 1);
+        
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)mode->width / (float)mode->height, 0.1f, 100.0f);
+        unifiedShader.setMat4("uP", projection);
+        glm::mat4 view = camera.GetViewMatrix();
+        unifiedShader.setMat4("uV", view);
+
+        // Render Tree (outside)
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -1.0f, -15.0f));
         unifiedShader.setMat4("uM", model);
         tree.Draw(unifiedShader);
 
-        drawSignature(simpleTextureShader, VAOsignature); // TODO: VAO outside?
+        // Render Bus Body (main shell)
+        glBindVertexArray(cubeVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, busColorTex);
+
+        // Floor
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(4.0f, 0.1f, 10.0f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Left wall
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-2.0f, 0.5f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.1f, 3.0f, 10.0f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Right wall (partial, for door)
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(2.0f, 0.5f, 1.0f));
+        model = glm::scale(model, glm::vec3(0.1f, 3.0f, 8.0f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Roof
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 2.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(4.0f, 0.1f, 10.0f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Back wall
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.5f, 5.0f));
+        model = glm::scale(model, glm::vec3(4.0f, 3.0f, 0.1f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Front lower part (where control panel is)
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -0.25f, -5.0f));
+        model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Door
+        glBindTexture(GL_TEXTURE_2D, doorTex);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(2.0f, 0.5f, -4.0f));
+        model = glm::scale(model, glm::vec3(0.1f, 3.0f, 2.0f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Control Panel (Red rectangle)
+        glBindTexture(GL_TEXTURE_2D, controlPanelTex);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -4.8f)); // Slightly closer to driver
+        model = glm::scale(model, glm::vec3(1.0f, 0.6f, 0.1f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // Windshield (Transparent)
+        glEnable(GL_BLEND);
+        glBindTexture(GL_TEXTURE_2D, windshieldTex);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 1.25f, -5.0f));
+        model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        drawSignature(simpleTextureShader, VAOsignature);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        while (glfwGetTime() - initFrameTime < 1 / 75.0) {}
+        while (glfwGetTime() - currentFrame < 1 / 75.0) {}
     }
 
     glfwDestroyWindow(window);
