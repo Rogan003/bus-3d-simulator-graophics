@@ -343,6 +343,11 @@ unsigned int createColorTexture(float r, float g, float b, float a = 1.0f) {
     return textureID;
 }
 
+// light settings
+glm::vec3 lightPos(0.0f, 1.8f, -3.0f); // Inside the bus, near the roof
+glm::vec3 lightColor(0.95f, 0.9f, 0.7f); // Warm yellow-ish light
+float lightIntensity = 1.2f;
+
 int main()
 {
     srand(time(NULL));
@@ -389,6 +394,7 @@ int main()
     unsigned int windshieldTex = createColorTexture(0.1f, 0.1f, 0.1f, 0.5f); // Dark transparent
     unsigned int controlPanelTex = createColorTexture(1.0f, 0.0f, 0.0f); // Red
     unsigned int doorTex = createColorTexture(0.2f, 0.6f, 0.3f); // Dark doors
+    unsigned int lightTex = createColorTexture(lightColor.r, lightColor.g, lightColor.b); // Light source color
 
     Shader unifiedShader("../Shaders/basic.vert", "../Shaders/basic.frag");
 
@@ -436,9 +442,10 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         unifiedShader.use();
-        unifiedShader.setVec3("uLightPos", 0, 5, 5);
+        unifiedShader.setVec3("uLightPos", lightPos);
         unifiedShader.setVec3("uViewPos", camera.Position);
-        unifiedShader.setVec3("uLightColor", 1, 1, 1);
+        unifiedShader.setVec3("uLightColor", lightColor);
+        unifiedShader.setFloat("uLightIntensity", lightIntensity);
         
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)mode->width / (float)mode->height, 0.1f, 100.0f);
         unifiedShader.setMat4("uP", projection);
@@ -523,6 +530,16 @@ int main()
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
+        // Light Source (Visual Representation)
+        unifiedShader.use();
+        unifiedShader.setFloat("uLightIntensity", 5.0f); // Make it bright
+        glBindTexture(GL_TEXTURE_2D, lightTex);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, lightPos);
+        model = glm::scale(model, glm::vec3(0.2f)); 
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        
         drawSignature(simpleTextureShader, VAOsignature);
 
         glfwSwapBuffers(window);
