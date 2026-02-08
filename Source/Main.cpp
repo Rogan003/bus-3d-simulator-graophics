@@ -26,6 +26,10 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+// render settings
+bool depthTestEnabled = true;
+bool faceCullingEnabled = false;
+
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
     float xpos = static_cast<float>(xposIn);
@@ -394,6 +398,7 @@ int main()
 
     glClearColor(0.3f, 0.4f, 0.8f, 1.0f); // kind of sky color
     glEnable(GL_DEPTH_TEST);
+    glCullFace(GL_BACK);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -403,6 +408,30 @@ int main()
 
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
+
+        static bool key1Pressed = false;
+        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+            if (!key1Pressed) {
+                depthTestEnabled = !depthTestEnabled;
+                if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
+                else glDisable(GL_DEPTH_TEST);
+                key1Pressed = true;
+            }
+        } else {
+            key1Pressed = false;
+        }
+
+        static bool key2Pressed = false;
+        if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+            if (!key2Pressed) {
+                faceCullingEnabled = !faceCullingEnabled;
+                if (faceCullingEnabled) glEnable(GL_CULL_FACE);
+                else glDisable(GL_CULL_FACE);
+                key2Pressed = true;
+            }
+        } else {
+            key2Pressed = false;
+        }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
