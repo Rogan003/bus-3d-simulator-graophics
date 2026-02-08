@@ -526,10 +526,18 @@ int main()
         // Steering Wheel
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, wheelTex);
+        
+        // Simulating wheel movement (slight left-right rotation)
+        float wheelRotation = sin(glfwGetTime() * 1.5f) * 15.0f; // Oscillation between -15 and 15 degrees
+        
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(-1.0f, 0.0f, -4.4f));
+        // Position the wheel in the bus (Y adjusted from 0.0f to 0.26f to compensate for centering translation)
+        model = glm::translate(model, glm::vec3(-1.0f, 0.26f, -4.5f));
         model = glm::rotate(model, glm::radians(-20.0f), glm::vec3(1.0f, 0.0f, 0.0f)); 
+        model = glm::rotate(model, glm::radians(wheelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
         model = glm::scale(model, glm::vec3(0.11f));
+        model = glm::translate(model, glm::vec3(0.0f, -2.39f, 0.0f)); // Center the wheel (Y center is ~2.39)
+        
         unifiedShader.setMat4("uM", model);
         wheel.Draw(unifiedShader);
 
