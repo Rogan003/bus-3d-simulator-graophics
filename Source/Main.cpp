@@ -204,13 +204,10 @@ void updateBusLogic() {
     if (distanceTraveled == 0.0f) {
         if (stopStartTime == 0.0) {
             if (isControlInside) {
-                int fined = (numberOfPassengers > 0) ? (rand() % numberOfPassengers) : 0;
+                int fined = (numberOfPassengers > 1) ? (rand() % (numberOfPassengers - 1)) : 0;
                 numberOfTickets += fined;
                 numberOfPassengers -= fined;
-                // Note: we don't immediately set isControlInside = false here, 
-                // but 2D project does it at the start of stop. 
-                // We'll follow 2D project:
-                isControlInside = false;
+                pendingControlChange = true;
             }
             stopStartTime = glfwGetTime();
         }
@@ -252,6 +249,13 @@ void updateBusLogic() {
         distanceTraveled += speed * deltaTime;
 
         if (distanceTraveled >= totalLength) {
+            if (isControlInside) {
+                int fined = (numberOfPassengers > 1) ? (rand() % (numberOfPassengers - 1)) : 0;
+                numberOfTickets += fined;
+                numberOfPassengers -= fined;
+                pendingControlChange = true;
+            }
+
             distanceTraveled = 0.0f;
             currentStation = nextStation;
             nextStation = (nextStation + 1) % 10;
@@ -303,9 +307,7 @@ void passengersInputCallback(GLFWwindow* window, int button, int action, int mod
 
 void controlInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (busStopped && key == GLFW_KEY_K && action == GLFW_PRESS) {
-        if (!isControlInside && !pendingControlChange && (numberOfPassengers + pendingPassengersChange < 50)) {
-            pendingControlChange = true;
-        } else if (isControlInside && !pendingControlChange) {
+        if (!isControlInside && !pendingControlChange && (numberOfPassengers < 50)) {
             pendingControlChange = true;
         }
     }
@@ -346,8 +348,6 @@ void processPassengersLogic() {
                 globalControlWalkProgress = 0.0f;
                 if (!isControlInside) {
                     isControlInside = true;
-                    // numberOfPassengers++; // Control is not a passenger in 2D project's counter but it increases it in controlEntered?
-                    // Actually in Projekat2D: controlEntered increments numberOfPassengers.
                     numberOfPassengers++;
                 } else {
                     isControlInside = false;
