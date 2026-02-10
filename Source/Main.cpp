@@ -22,9 +22,485 @@ float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
+// 2D Project State
+struct Station {
+    float x, y;
+    int number;
+};
+Station stations[10];
+bool busStopped = false;
+int numberOfPassengers = 0;
+bool isControlInside = false;
+int numberOfTickets = 0;
+int currentStation = 0;
+int nextStation = 1;
+float distanceTraveled = 0.0f;
+double stopStartTime = 0.0;
+
+struct PassengerModel {
+    int modelIndex; // 0-14 for person1-15
+    float scale;
+    bool isActive;
+    bool isWalkingIn;
+    bool isWalkingOut;
+    float walkProgress; // 0.0 to 1.0
+};
+std::vector<PassengerModel> activePassengers;
+std::vector<Model*> personModels;
+Model* controlModel;
+bool isPassengerWalking = false;
+int pendingPassengersChange = 0; // >0 for entering, <0 for leaving
+bool pendingControlChange = false;
+
+void initializeStations() {
+    stations[0].x = -0.4f; stations[0].y = 0.6f; stations[0].number = 0;
+    stations[1].x = 0.15f; stations[1].y = 0.55f; stations[1].number = 1;
+    stations[2].x = 0.5f; stations[2].y = 0.65f; stations[2].number = 2;
+    stations[3].x = 0.55f; stations[3].y = 0.3f; stations[3].number = 3;
+    stations[4].x = 0.65f; stations[4].y = -0.35f; stations[4].number = 4;
+    stations[5].x = 0.1f; stations[5].y = -0.5f; stations[5].number = 5;
+    stations[6].x = -0.15f; stations[6].y = -0.65f; stations[6].number = 6;
+    stations[7].x = -0.4f; stations[7].y = -0.1f; stations[7].number = 7;
+    stations[8].x = -0.75f; stations[8].y = 0.15f; stations[8].number = 8;
+    stations[9].x = -0.45f; stations[9].y = 0.25f; stations[9].number = 9;
+}
+
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
+// 2D Rendering globals (FBO)
+unsigned int fbo, fboTex;
+const unsigned int FBO_WIDTH = 1024;
+const unsigned int FBO_HEIGHT = 1024;
+
+void setupFBO() {
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glGenTextures(1, &fboTex);
+    glBindTexture(GL_TEXTURE_2D, fboTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, FBO_WIDTH, FBO_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fboTex, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+// Global textures for 2D
+unsigned bus2DTex;
+unsigned doorsOpenTex;
+unsigned doorsClosedTex;
+unsigned control2DTex;
+
+void renderText(unsigned int shader, std::string text, float x, float y, float scale, float r, float g, float b, float screenWidth, float screenHeight);
+void drawSignature(unsigned int shader, unsigned int vao);
+extern unsigned int textShader;
+
+// 2D draw functions (modified from Projekat2D)
+void draw2DStations(unsigned int shader, unsigned int vao) {
+    glUseProgram(shader);
+    GLint loc = glGetUniformLocation(shader, "uOffset");
+    for (int i = 0; i < 10; i++) {
+        glUniform2f(loc, stations[i].x, stations[i].y);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 42); // NUM_SLICES + 2
+    }
+
+    for (int i = 0; i < 10; i++) {
+        char numStr[2];
+        snprintf(numStr, sizeof(numStr), "%d", i);
+        renderText(textShader, numStr, stations[i].x - 0.02f, stations[i].y - 0.02f, 0.8f, 0.9f, 0.9f, 0.9f, FBO_WIDTH, FBO_HEIGHT);
+    }
+}
+
+float bus2DX = -0.4f, bus2DY = 0.6f;
+
+void draw2DBus(unsigned int shader, unsigned int vao) {
+    glUseProgram(shader);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, bus2DTex);
+    GLint loc = glGetUniformLocation(shader, "uOffset");
+    glUniform2f(loc, bus2DX, bus2DY);
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+}
+
+void draw2DPaths(unsigned int shader) {
+    glUseProgram(shader);
+    const int segments = 50;
+    for (int i = 0; i < 10; i++) {
+        int next = (i + 1) % 10;
+        float cx = (stations[i].x + stations[next].x) / 2.0f;
+        float cy = (stations[i].y + stations[next].y) / 2.0f;
+        float dx = stations[next].x - stations[i].x;
+        float dy = stations[next].y - stations[i].y;
+        float offset = 0.35f;
+        float length_dir = sqrt(dx*dx + dy*dy);
+        if (length_dir > 0.0f) {
+            cx += -dy / length_dir * offset;
+            cy += dx / length_dir * offset;
+        }
+        std::vector<float> vertices;
+        for (int j = 0; j <= segments; j++) {
+            float t = (float)j / segments;
+            float u = 1.0f - t;
+            float x = u*u*stations[i].x + 2*u*t*cx + t*t*stations[next].x;
+            float y = u*u*stations[i].y + 2*u*t*cy + t*t*stations[next].y;
+            vertices.push_back(x);
+            vertices.push_back(y);
+        }
+        unsigned int VAO, VBO;
+        glGenVertexArrays(1, &VAO);
+        glGenBuffers(1, &VBO);
+        glBindVertexArray(VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+        glLineWidth(3.0f);
+        glDrawArrays(GL_LINE_STRIP, 0, vertices.size() / 2);
+        glDeleteBuffers(1, &VBO);
+        glDeleteVertexArrays(1, &VAO);
+    }
+}
+
+void draw2DDoors(unsigned int shader, unsigned int vao) {
+    glUseProgram(shader);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, busStopped ? doorsOpenTex : doorsClosedTex);
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+}
+
+void draw2DControl(unsigned int shader, unsigned int vao) {
+    if (!isControlInside) return;
+    glUseProgram(shader);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, control2DTex);
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+}
+
+void draw2DText() {
+    char passengerText[64];
+    snprintf(passengerText, sizeof(passengerText), "Passengers: %d", numberOfPassengers);
+    char ticketsText[64];
+    snprintf(ticketsText, sizeof(ticketsText), "Tickets: %d", numberOfTickets);
+
+    renderText(textShader, passengerText, 0.4f, 0.9f, 0.8f, 0.9f, 0.9f, 0.9f, FBO_WIDTH, FBO_HEIGHT);
+    renderText(textShader, ticketsText, 0.4f, 0.8f, 0.8f, 0.9f, 0.9f, 0.9f, FBO_WIDTH, FBO_HEIGHT);
+}
+
+void updateBusLogic() {
+    const float speed = 0.15f;
+    const int segments = 100;
+    const double stopDuration = 10.0;
+
+    if (distanceTraveled == 0.0f) {
+        if (stopStartTime == 0.0) {
+            if (isControlInside) {
+                int fined = (numberOfPassengers > 0) ? (rand() % numberOfPassengers) : 0;
+                numberOfTickets += fined;
+                numberOfPassengers -= fined;
+                // Note: we don't immediately set isControlInside = false here, 
+                // but 2D project does it at the start of stop. 
+                // We'll follow 2D project:
+                isControlInside = false;
+            }
+            stopStartTime = glfwGetTime();
+        }
+        double elapsed = glfwGetTime() - stopStartTime;
+        if (elapsed < stopDuration) {
+            busStopped = true;
+        } else {
+            stopStartTime = 0.0;
+            busStopped = false;
+        }
+    } else {
+        busStopped = false;
+    }
+
+    if (!busStopped) {
+        float dx = stations[nextStation].x - stations[currentStation].x;
+        float dy = stations[nextStation].y - stations[currentStation].y;
+        float cx = (stations[currentStation].x + stations[nextStation].x) / 2.0f;
+        float cy = (stations[currentStation].y + stations[nextStation].y) / 2.0f;
+        float length_dir = sqrt(dx*dx + dy*dy);
+        if (length_dir > 0.0f) {
+            cx += -dy / length_dir * 0.35f;
+            cy += dx / length_dir * 0.35f;
+        }
+
+        float totalLength = 0.0f;
+        float lastX = stations[currentStation].x;
+        float lastY = stations[currentStation].y;
+        for (int i = 1; i <= segments; i++) {
+            float tSeg = (float)i / segments;
+            float u = 1.0f - tSeg;
+            float x = u*u*stations[currentStation].x + 2*u*tSeg*cx + tSeg*tSeg*stations[nextStation].x;
+            float y = u*u*stations[currentStation].y + 2*u*tSeg*cy + tSeg*tSeg*stations[nextStation].y;
+            totalLength += sqrt((x-lastX)*(x-lastX) + (y-lastY)*(y-lastY));
+            lastX = x;
+            lastY = y;
+        }
+
+        distanceTraveled += speed * deltaTime;
+
+        if (distanceTraveled >= totalLength) {
+            distanceTraveled = 0.0f;
+            currentStation = nextStation;
+            nextStation = (nextStation + 1) % 10;
+            busStopped = true;
+            stopStartTime = glfwGetTime();
+        }
+
+        float traveled = 0.0f;
+        bus2DX = stations[currentStation].x;
+        bus2DY = stations[currentStation].y;
+        lastX = stations[currentStation].x;
+        lastY = stations[currentStation].y;
+        for (int i = 1; i <= segments; i++) {
+            float tSeg = (float)i / segments;
+            float u = 1.0f - tSeg;
+            float x = u*u*stations[currentStation].x + 2*u*tSeg*cx + tSeg*tSeg*stations[nextStation].x;
+            float y = u*u*stations[currentStation].y + 2*u*tSeg*cy + tSeg*tSeg*stations[nextStation].y;
+            float d = sqrt((x-lastX)*(x-lastX) + (y-lastY)*(y-lastY));
+            if (traveled + d >= distanceTraveled) {
+                float remain = distanceTraveled - traveled;
+                float ratio = (d > 0) ? (remain / d) : 0;
+                bus2DX = lastX + (x-lastX) * ratio;
+                bus2DY = lastY + (y-lastY) * ratio;
+                break;
+            }
+            traveled += d;
+            lastX = x;
+            lastY = y;
+        }
+    } else {
+        bus2DX = stations[currentStation].x;
+        bus2DY = stations[currentStation].y;
+    }
+}
+
+void passengersInputCallback(GLFWwindow* window, int button, int action, int mods) {
+    if (!busStopped) return;
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        if (numberOfPassengers + pendingPassengersChange < 50) {
+            pendingPassengersChange++;
+        }
+    }
+    else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+        if (numberOfPassengers + pendingPassengersChange > 0) {
+            pendingPassengersChange--;
+        }
+    }
+}
+
+void controlInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (busStopped && key == GLFW_KEY_K && action == GLFW_PRESS) {
+        if (!isControlInside && !pendingControlChange && (numberOfPassengers + pendingPassengersChange < 50)) {
+            pendingControlChange = true;
+        } else if (isControlInside && !pendingControlChange) {
+            pendingControlChange = true;
+        }
+    }
+}
+
+void renderControlPanelToFBO(unsigned int busShader, unsigned int stationShader, unsigned int pathShader, unsigned int simpleShader, 
+                              unsigned int busVAO, unsigned int stationVAO, unsigned int doorVAO, unsigned int controlVAO, unsigned int signatureVAO) {
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
+    glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+
+    drawSignature(simpleShader, signatureVAO);
+    draw2DStations(stationShader, stationVAO);
+    draw2DPaths(pathShader);
+    draw2DBus(busShader, busVAO);
+    draw2DDoors(simpleShader, doorVAO);
+    draw2DText();
+    draw2DControl(simpleShader, controlVAO);
+
+    glEnable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+float globalControlWalkProgress = 0.0f;
+float doorProgress = 0.0f;
+
+void processPassengersLogic() {
+    if (isPassengerWalking) {
+        bool found = false;
+        
+        // Handle control walking
+        if (pendingControlChange) {
+            globalControlWalkProgress += deltaTime / 1.5f;
+            if (globalControlWalkProgress >= 1.0f) {
+                globalControlWalkProgress = 0.0f;
+                if (!isControlInside) {
+                    isControlInside = true;
+                    // numberOfPassengers++; // Control is not a passenger in 2D project's counter but it increases it in controlEntered?
+                    // Actually in Projekat2D: controlEntered increments numberOfPassengers.
+                    numberOfPassengers++;
+                } else {
+                    isControlInside = false;
+                    numberOfPassengers--;
+                }
+                pendingControlChange = false;
+                isPassengerWalking = false;
+            }
+            found = true;
+        }
+        
+        if (!found) {
+            for (auto it = activePassengers.begin(); it != activePassengers.end(); ++it) {
+                if (it->isWalkingIn || it->isWalkingOut) {
+                    it->walkProgress += deltaTime / 1.5f;
+                    if (it->walkProgress >= 1.0f) {
+                        it->walkProgress = 0.0f;
+                        if (it->isWalkingIn) {
+                            it->isWalkingIn = false;
+                            it->isActive = true;
+                            numberOfPassengers++;
+                        } else {
+                            it->isActive = false;
+                            activePassengers.erase(it);
+                        }
+                        isPassengerWalking = false;
+                        pendingPassengersChange = (pendingPassengersChange > 0) ? (pendingPassengersChange - 1) : (pendingPassengersChange + 1);
+                    }
+                    found = true;
+                    break;
+                }
+            }
+        }
+    } else {
+        if (!busStopped) {
+            pendingPassengersChange = 0;
+            pendingControlChange = false;
+            return;
+        }
+
+        if (pendingControlChange) {
+            isPassengerWalking = true;
+            globalControlWalkProgress = 0.0f;
+        } else if (pendingPassengersChange != 0) {
+            if (isControlInside) {
+                pendingPassengersChange = 0;
+                return;
+            }
+            
+            if (pendingPassengersChange > 0) {
+                PassengerModel p;
+                p.modelIndex = rand() % 15;
+                p.scale = 0.8f + static_cast <float> (rand()) / ( static_cast <float> (RAND_MAX/(1.2f-0.8f)));
+                p.isActive = false;
+                p.isWalkingIn = true;
+                p.isWalkingOut = false;
+                p.walkProgress = 0.0f;
+                activePassengers.push_back(p);
+                isPassengerWalking = true;
+            } else if (pendingPassengersChange < 0 && !activePassengers.empty()) {
+                int idx = rand() % activePassengers.size();
+                activePassengers[idx].isWalkingOut = true;
+                activePassengers[idx].isActive = false;
+                activePassengers[idx].walkProgress = 0.0f;
+                isPassengerWalking = true;
+                numberOfPassengers--; 
+            } else {
+                pendingPassengersChange = 0;
+            }
+        }
+    }
+}
+
+void draw3DPassengers(Shader& shader) {
+    for (auto& p : activePassengers) {
+        if (p.isActive || p.isWalkingIn || p.isWalkingOut) {
+            glm::mat4 model = glm::mat4(1.0f);
+            glm::vec3 pos;
+            float angle = -90.0f;
+
+            glm::vec3 outside(3.5f, -1.0f, -4.0f);
+            glm::vec3 door(2.0f, -1.0f, -4.0f);
+            glm::vec3 inside(-1.0f, -1.0f, 2.0f);
+
+            if (p.isActive) {
+                pos = inside;
+            } else if (p.isWalkingIn) {
+                if (p.walkProgress < 0.5f) {
+                    pos = glm::mix(outside, door, p.walkProgress * 2.0f);
+                    angle = -90.0f;
+                } else {
+                    pos = glm::mix(door, inside, (p.walkProgress - 0.5f) * 2.0f);
+                    angle = 180.0f;
+                }
+            } else if (p.isWalkingOut) {
+                if (p.walkProgress < 0.5f) {
+                    pos = glm::mix(inside, door, p.walkProgress * 2.0f);
+                    angle = 0.0f;
+                } else {
+                    pos = glm::mix(door, outside, (p.walkProgress - 0.5f) * 2.0f);
+                    angle = 90.0f;
+                }
+            }
+
+            model = glm::translate(model, pos);
+            model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(p.scale));
+            shader.setMat4("uM", model);
+            personModels[p.modelIndex]->Draw(shader);
+        }
+    }
+
+    // Draw Control if inside or walking
+    if (isControlInside || (pendingControlChange && isPassengerWalking)) {
+        glm::mat4 model = glm::mat4(1.0f);
+        glm::vec3 pos;
+        float angle = -90.0f;
+
+        glm::vec3 outside(3.5f, -1.0f, -4.0f);
+        glm::vec3 door(2.0f, -1.0f, -4.0f);
+        glm::vec3 inside(-0.5f, -1.0f, -4.0f); // Control stands next to driver
+
+        if (isControlInside && !pendingControlChange) {
+            pos = inside;
+            angle = 90.0f;
+        } else if (pendingControlChange) {
+            bool walkingIn = !isControlInside;
+            if (walkingIn) {
+                if (globalControlWalkProgress < 0.5f) {
+                    pos = glm::mix(outside, door, globalControlWalkProgress * 2.0f);
+                    angle = -90.0f;
+                } else {
+                    pos = glm::mix(door, inside, (globalControlWalkProgress - 0.5f) * 2.0f);
+                    angle = 180.0f;
+                }
+            } else {
+                if (globalControlWalkProgress < 0.5f) {
+                    pos = glm::mix(inside, door, globalControlWalkProgress * 2.0f);
+                    angle = 0.0f;
+                } else {
+                    pos = glm::mix(door, outside, (globalControlWalkProgress - 0.5f) * 2.0f);
+                    angle = 90.0f;
+                }
+            }
+        }
+
+        model = glm::translate(model, pos);
+        model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(1.0f));
+        shader.setMat4("uM", model);
+        controlModel->Draw(shader);
+    }
+}
 
 // render settings
 bool depthTestEnabled = true;
@@ -364,6 +840,8 @@ int main()
     if (window == NULL) return endProgram("Prozor nije uspeo da se kreira.");
     glfwMakeContextCurrent(window);
     glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetMouseButtonCallback(window, passengersInputCallback);
+    glfwSetKeyCallback(window, controlInputCallback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     if (glewInit() != GLEW_OK) return endProgram("GLEW nije uspeo da se inicijalizuje.");
@@ -390,12 +868,86 @@ int main()
     unsigned int cubeVAO, cubeVBO;
     formVAO3D(cubeVertices, sizeof(cubeVertices), cubeVAO, cubeVBO);
 
+    unsigned int rectVAO, rectVBO;
+    float rectVertices[] = {
+        // positions          // normals           // texture coords
+        -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,
+         0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  1.0f, 0.0f,
+         0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  1.0f, 1.0f,
+         0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  1.0f, 1.0f,
+        -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 1.0f,
+        -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f
+    };
+    formVAO3D(rectVertices, sizeof(rectVertices), rectVAO, rectVBO);
+
     unsigned int busColorTex = createColorTexture(0.3f, 0.3f, 0.3f); // Grey-ish bus
     unsigned int windshieldTex = createColorTexture(0.1f, 0.1f, 0.1f, 0.5f); // Dark transparent
     unsigned int controlPanelTex = createColorTexture(1.0f, 0.0f, 0.0f); // Red
     unsigned int wheelTex = createColorTexture(0.15f, 0.15f, 0.15f); // Dark gray
     unsigned int doorTex = createColorTexture(0.2f, 0.6f, 0.3f); // Dark doors
     unsigned int lightTex = createColorTexture(lightColor.r, lightColor.g, lightColor.b); // Light source color
+
+    setupFBO();
+    preprocessTexture(bus2DTex, "../Projekat2D/Resources/bus.png");
+    preprocessTexture(doorsClosedTex, "../Projekat2D/Resources/doors_closed.png");
+    preprocessTexture(doorsOpenTex, "../Projekat2D/Resources/doors_open.png");
+    preprocessTexture(control2DTex, "../Projekat2D/Resources/bus_control.png");
+
+    unsigned int bus2DShader = createShader("../Projekat2D/Shaders/bus.vert", "../Projekat2D/Shaders/bus.frag");
+    unsigned int station2DShader = createShader("../Projekat2D/Shaders/station.vert", "../Projekat2D/Shaders/station.frag");
+    unsigned int path2DShader = createShader("../Projekat2D/Shaders/path.vert", "../Projekat2D/Shaders/path.frag");
+
+    initializeStations();
+
+    float verticesBus2D[] = {
+        -0.06f, 0.1f, 0.0f, 1.0f,
+        -0.06f, -0.1f, 0.0f, 0.0f,
+        0.06f, -0.1f, 1.0f, 0.0f,
+        0.06f, 0.1f, 1.0f, 1.0f,
+    };
+    unsigned int VAOBus2D;
+    formVAOTexture(verticesBus2D, sizeof(verticesBus2D), VAOBus2D);
+
+    float verticesStation2D[42 * 2];
+    float xc2D = 0.0f, yc2D = 0.0f, r2D = 0.1f;
+    float aspect2D = (float)FBO_WIDTH / (float)FBO_HEIGHT;
+    verticesStation2D[0] = xc2D;
+    verticesStation2D[1] = yc2D;
+    for (int i = 1; i < 42; ++i) {
+        float angle = i * 2 * 3.14159f / 40.0f;
+        verticesStation2D[i * 2 + 0] = cos(angle) * r2D / aspect2D + xc2D;
+        verticesStation2D[i * 2 + 1] = sin(angle) * r2D + yc2D;
+    }
+    unsigned int VAOstations2D;
+    formVAOPositionOnly(verticesStation2D, sizeof(verticesStation2D), VAOstations2D);
+
+    float verticesDoors2D[] = {
+        -1.0f, -0.5f, 0.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f,
+        -0.65, -1.0f, 1.0f, 0.0f,
+        -0.65f, -0.5f, 1.0f, 1.0f,
+    };
+    unsigned int VAOdoors2D;
+    formVAOTexture(verticesDoors2D, sizeof(verticesDoors2D), VAOdoors2D);
+
+    float verticesControl2D[] = {
+        -1.0f, 1.0f, 0.0f, 1.0f,
+        -1.0f, 0.65f, 0.0f, 0.0f,
+        -0.75f, 0.65f, 1.0f, 0.0f,
+        -0.75f, 1.0f, 1.0f, 1.0f,
+    };
+    unsigned int VAOcontrol2D;
+    formVAOTexture(verticesControl2D, sizeof(verticesControl2D), VAOcontrol2D);
+
+    // Load person models
+    for (int i = 1; i <= 15; i++) {
+        std::string path = "../Resources/person" + std::to_string(i) + "/model.obj";
+        personModels.push_back(new Model(path));
+    }
+    controlModel = new Model("../Resources/control/control.obj");
+
+    textShader = createShader("../Projekat2D/Shaders/text.vert", "../Projekat2D/Shaders/text.frag");
+    initFreeType("../Projekat2D/Resources/font.ttf");
 
     Shader unifiedShader("../Shaders/basic.vert", "../Shaders/basic.frag");
 
@@ -443,27 +995,21 @@ int main()
             key2Pressed = false;
         }
 
-        static bool doorOpen = false;
-        static float doorProgress = 0.0f; // 0.0 = closed, 1.0 = open
-        static bool oKeyPressed = false;
-        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
-            if (!oKeyPressed) {
-                doorOpen = !doorOpen;
-                oKeyPressed = true;
-            }
-        } else {
-            oKeyPressed = false;
-        }
+        updateBusLogic();
+        processPassengersLogic();
 
-        float doorSpeed = 2.0f; 
-        if (doorOpen) {
-            doorProgress += deltaTime * doorSpeed;
-            if (doorProgress > 1.0f) doorProgress = 1.0f;
-        } else {
-            doorProgress -= deltaTime * doorSpeed;
-            if (doorProgress < 0.0f) doorProgress = 0.0f;
-        }
+        // 1. Render Control Panel to FBO
+        renderControlPanelToFBO(bus2DShader, station2DShader, path2DShader, simpleTextureShader, 
+                                VAOBus2D, VAOstations2D, VAOdoors2D, VAOcontrol2D, VAOsignature);
 
+        // Reset viewport to screen size
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+        glViewport(0, 0, width, height);
+        if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
+        else glDisable(GL_DEPTH_TEST);
+
+        glClearColor(0.3f, 0.4f, 0.8f, 1.0f); // Set sky color for main scene
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         unifiedShader.use();
@@ -472,7 +1018,7 @@ int main()
         unifiedShader.setVec3("uLightColor", lightColor);
         unifiedShader.setFloat("uLightIntensity", lightIntensity);
         
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)mode->width / (float)mode->height, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)width / (float)height, 0.1f, 100.0f);
         unifiedShader.setMat4("uP", projection);
         glm::mat4 view = camera.GetViewMatrix();
         unifiedShader.setMat4("uV", view);
@@ -530,40 +1076,58 @@ int main()
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Door
+        // Windshield (Transparent) - Moved here to be drawn after opaque but before interior items
+        glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE); // Don't write to depth buffer for transparent objects
+        glBindTexture(GL_TEXTURE_2D, windshieldTex);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 1.25f, -5.0f));
+        model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glDepthMask(GL_TRUE); // Re-enable depth writing
+
+        // Door (Synchronized with busStopped)
+        float doorSpeed = 2.0f; 
+        if (busStopped) {
+            doorProgress += deltaTime * doorSpeed;
+            if (doorProgress > 1.0f) doorProgress = 1.0f;
+        } else {
+            doorProgress -= deltaTime * doorSpeed;
+            if (doorProgress < 0.0f) doorProgress = 0.0f;
+        }
+
         glBindTexture(GL_TEXTURE_2D, doorTex);
         model = glm::mat4(1.0f);
-        // Position the door at its hinge (the edge towards the front of the bus)
-        // Original center was (2.0f, 0.5f, -4.0f) with scale (0.1, 3.0, 2.0).
-        // The hinge should be at the front edge: Z = -4.0 - 1.0 = -5.0? No, wait.
-        // Scale is 2.0 in Z, so it spans from -5.0 to -3.0. 
-        // Let's place hinge at Z = -3.0 (towards the back) or Z = -5.0 (towards the front).
-        // Usually bus doors open outwards or inwards hinged at one side.
-        
         float doorAngle = doorProgress * -90.0f; // Opens 90 degrees outwards
-        
-        model = glm::translate(model, glm::vec3(2.0f, 0.5f, -3.0f)); // Move to hinge position (back edge of the door)
+        model = glm::translate(model, glm::vec3(2.0f, 0.5f, -3.0f)); 
         model = glm::rotate(model, glm::radians(doorAngle), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -1.0f)); // Move back so the hinge is at the edge
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -1.0f)); 
         model = glm::scale(model, glm::vec3(0.1f, 3.0f, 2.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Control Panel (Red rectangle)
-        glBindTexture(GL_TEXTURE_2D, controlPanelTex);
+        // Control Panel (using FBO texture for the screen, and red for the backing)
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -4.8f)); // Slightly closer to driver
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -4.8f)); 
         model = glm::scale(model, glm::vec3(1.0f, 0.6f, 0.1f));
         unifiedShader.setMat4("uM", model);
+
+        // Draw the red base
+        glBindTexture(GL_TEXTURE_2D, controlPanelTex);
+        glBindVertexArray(cubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Person outside the door
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(3.5f, -1.0f, -4.0f)); // Just outside the door area
-        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // Face the bus
-        model = glm::scale(model, glm::vec3(1.0f)); // Model is already ~1.85 units tall
-        unifiedShader.setMat4("uM", model);
-        person.Draw(unifiedShader);
+        // Draw the functional screen on front face
+        glBindTexture(GL_TEXTURE_2D, fboTex);
+        glBindVertexArray(rectVAO);
+        glm::mat4 screenModel = model;
+        screenModel = glm::translate(screenModel, glm::vec3(0.0f, 0.0f, 0.501f)); // Slightly in front of the cube face
+        unifiedShader.setMat4("uM", screenModel);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // 3D Passengers
+        draw3DPassengers(unifiedShader);
 
         // Steering Wheel
         glActiveTexture(GL_TEXTURE0);
@@ -613,14 +1177,17 @@ int main()
         unifiedShader.setMat4("uM", model);
         cigarette.Draw(unifiedShader);
 
-        // Windshield (Transparent)
+
+        // Windshield (Transparent) - Draw after opaque interior and passengers
         glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
         glBindTexture(GL_TEXTURE_2D, windshieldTex);
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, 1.25f, -5.0f));
         model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
+        glDepthMask(GL_TRUE);
 
         // Light Source (Visual Representation)
         unifiedShader.use();
