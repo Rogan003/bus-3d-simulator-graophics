@@ -953,7 +953,6 @@ int main()
 
     Model tree("../Resources/tree/Tree.obj");
     Model wheel("../Resources/wheel/merc steering.obj");
-    Model person("../Resources/person1/model.obj");
     Model cigarette("../Resources/cigarette/CHAHIN_CIGARETTE_BUTT.obj");
 
     camera.Position = glm::vec3(-1.0f, 0.5f, -4.0f);
