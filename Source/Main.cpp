@@ -206,7 +206,6 @@ void updateBusLogic() {
             if (isControlInside) {
                 int fined = (numberOfPassengers > 1) ? (rand() % (numberOfPassengers - 1)) : 0;
                 numberOfTickets += fined;
-                numberOfPassengers -= fined;
                 pendingControlChange = true;
             }
             stopStartTime = glfwGetTime();
@@ -252,7 +251,6 @@ void updateBusLogic() {
             if (isControlInside) {
                 int fined = (numberOfPassengers > 1) ? (rand() % (numberOfPassengers - 1)) : 0;
                 numberOfTickets += fined;
-                numberOfPassengers -= fined;
                 pendingControlChange = true;
             }
 
@@ -294,20 +292,16 @@ void updateBusLogic() {
 void passengersInputCallback(GLFWwindow* window, int button, int action, int mods) {
     if (!busStopped) return;
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-        if (numberOfPassengers + pendingPassengersChange < 50) {
-            pendingPassengersChange++;
-        }
+        pendingPassengersChange++;
     }
     else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
-        if (numberOfPassengers + pendingPassengersChange > 0) {
-            pendingPassengersChange--;
-        }
+        pendingPassengersChange--;
     }
 }
 
 void controlInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (busStopped && key == GLFW_KEY_K && action == GLFW_PRESS) {
-        if (!isControlInside && !pendingControlChange && (numberOfPassengers < 50)) {
+        if (!isControlInside && !pendingControlChange) {
             pendingControlChange = true;
         }
     }
@@ -371,6 +365,7 @@ void processPassengersLogic() {
                             numberOfPassengers++;
                         } else {
                             it->isActive = false;
+                            numberOfPassengers--;
                             activePassengers.erase(it);
                         }
                         isPassengerWalking = false;
@@ -398,6 +393,10 @@ void processPassengersLogic() {
             }
             
             if (pendingPassengersChange > 0) {
+                if (numberOfPassengers >= 50) {
+                    pendingPassengersChange = 0;
+                    return;
+                }
                 PassengerModel p;
                 p.modelIndex = rand() % 15;
                 p.scale = 0.8f + static_cast <float> (rand()) / ( static_cast <float> (RAND_MAX/(1.2f-0.8f)));
@@ -407,13 +406,16 @@ void processPassengersLogic() {
                 p.walkProgress = 0.0f;
                 activePassengers.push_back(p);
                 isPassengerWalking = true;
-            } else if (pendingPassengersChange < 0 && !activePassengers.empty()) {
+            } else if (pendingPassengersChange < 0) {
+                if (activePassengers.empty()) {
+                    pendingPassengersChange = 0;
+                    return;
+                }
                 int idx = rand() % activePassengers.size();
                 activePassengers[idx].isWalkingOut = true;
                 activePassengers[idx].isActive = false;
                 activePassengers[idx].walkProgress = 0.0f;
                 isPassengerWalking = true;
-                numberOfPassengers--; 
             } else {
                 pendingPassengersChange = 0;
             }
