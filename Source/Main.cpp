@@ -563,36 +563,12 @@ void preprocessTexture(unsigned& texture, const char* filepath) {
 unsigned int VBO;
 
 void formVAOTexture(float* vertices, size_t size, unsigned int& vao) {
-    // formiranje VAO-ova je izdvojeno u posebnu funkciju radi čitljivijeg koda u main funkciji
-
-    // Podsetnik za atribute:
-    /*
-        Jedan VAO se vezuje za jedan deo celokupnog skupa verteksa na sceni.
-        Na primer, dobra praksa je da se jedan VAO vezuje za jedan VBO koji se vezuje za jedan objekat, odnosno niz temena koja opisuju objekat.
-
-        VAO je pomoćna struktura koja opisuje kako se podaci u nizu objekta interpretiraju.
-        U render-petlji, za crtanje određenog objekta, naredbom glBindVertexArray(nekiVAO) se određuje koji se objekat crta.
-
-        Potrebno je definisati koje atribute svako teme u nizu sadrži, npr. pozicija na lokaciji 0 i boja na lokaciji 1.
-
-        Ova konfiguracija je specifična za naš primer na vežbama i može se menjati za različite potrebe u projektu.
-
-
-        Atribut se opisuje metodom glVertexAttribPointer(). Argumenti su redom:
-            index - identifikacioni kod atributa, u verteks šejderu je povezan preko svojstva location (location = 0 u šejderu -> indeks tog atributa treba staviti isto 0 u ovoj naredbi)
-            size - broj vrednosti unutar atributa (npr. za poziciju su x i y, odnosno 2 vrednosti; za boju r, g i b, odnosno 3 vrednosti)
-            type - tip vrednosti
-            normalized - da li je potrebno mapirati na odgovarajući opseg (mi poziciju već inicijalizujemo na opseg (-1, 1), a boju (0, 1), tako da nam nije potrebno)
-            stride - koliko elemenata u nizu treba preskočiti da bi se došlo od datog atributa u jednom verteksu do istog tog atributa u sledećem verteksu
-            pointer - koliko elemenata u nizu treba preskočiti od početka niza da bi se došlo do prvog pojavljivanja datog atributa
-    */
-    // Četvorougao
-
     glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &VBO);
+    unsigned int vbo;
+    glGenBuffers(1, &vbo);
 
     glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
 
     // Atribut 0 (pozicija):
@@ -638,20 +614,23 @@ void formVAO3D(float* vertices, size_t size, unsigned int& vao, unsigned int& vb
 
 float cubeVertices[] = {
     // positions          // normals           // texture coords
+    // Back Face (Normal is 0,0,-1) - CCW from outside
     -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
      0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
      0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
     -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
 
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
+    // Front Face (Normal 0,0,1) - CCW from outside
+    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
 
+    // Left Face (Normal -1,0,0) - CCW from outside
     -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
     -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
     -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
@@ -659,13 +638,15 @@ float cubeVertices[] = {
     -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
     -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
 
+    // Right Face (Normal 1,0,0) - CCW from outside
      0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
      0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
      0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
      0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
 
+    // Bottom Face (Normal 0,-1,0) - CCW from outside
     -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
      0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
      0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
@@ -673,11 +654,12 @@ float cubeVertices[] = {
     -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
     -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
 
+    // Top Face (Normal 0,1,0) - CCW from outside
     -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
     -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
     -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
 };
 
@@ -859,10 +841,10 @@ int main()
 
     float verticesSignature[] = {
         0.5f, -0.7f, 0.0f, 1.0f, // gornje levo teme
-        0.5f, -1.0f, 0.0f, 0.0f, // donje levo teme
-        1.0f, -1.0f, 1.0f, 0.0f, // donje desno teme
         1.0f, -0.7f, 1.0f, 1.0f, // gornje desno teme
-   };
+        1.0f, -1.0f, 1.0f, 0.0f, // donje desno teme
+        0.5f, -1.0f, 0.0f, 0.0f, // donje levo teme
+    };
 
     unsigned int VAOsignature;
     formVAOTexture(verticesSignature, sizeof(verticesSignature), VAOsignature);
@@ -903,9 +885,9 @@ int main()
 
     float verticesBus2D[] = {
         -0.06f, 0.1f, 0.0f, 1.0f,
-        -0.06f, -0.1f, 0.0f, 0.0f,
-        0.06f, -0.1f, 1.0f, 0.0f,
         0.06f, 0.1f, 1.0f, 1.0f,
+        0.06f, -0.1f, 1.0f, 0.0f,
+        -0.06f, -0.1f, 0.0f, 0.0f,
     };
     unsigned int VAOBus2D;
     formVAOTexture(verticesBus2D, sizeof(verticesBus2D), VAOBus2D);
@@ -925,18 +907,18 @@ int main()
 
     float verticesDoors2D[] = {
         -1.0f, -0.5f, 0.0f, 1.0f,
-        -1.0f, -1.0f, 0.0f, 0.0f,
+        -0.65, -0.5f, 1.0f, 1.0f,
         -0.65, -1.0f, 1.0f, 0.0f,
-        -0.65f, -0.5f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f,
     };
     unsigned int VAOdoors2D;
     formVAOTexture(verticesDoors2D, sizeof(verticesDoors2D), VAOdoors2D);
 
     float verticesControl2D[] = {
         -1.0f, 1.0f, 0.0f, 1.0f,
-        -1.0f, 0.65f, 0.0f, 0.0f,
-        -0.75f, 0.65f, 1.0f, 0.0f,
         -0.75f, 1.0f, 1.0f, 1.0f,
+        -0.75f, 0.65f, 1.0f, 0.0f,
+        -1.0f, 0.65f, 0.0f, 0.0f,
     };
     unsigned int VAOcontrol2D;
     formVAOTexture(verticesControl2D, sizeof(verticesControl2D), VAOcontrol2D);
