@@ -29,6 +29,8 @@ struct Station {
 };
 Station stations[10];
 bool busStopped = false;
+float busJogY = 0.0f;
+float busJogX = 0.0f;
 int numberOfPassengers = 0;
 bool isControlInside = false;
 int numberOfTickets = 0;
@@ -423,6 +425,9 @@ void processPassengersLogic() {
     }
 }
 
+extern float busJogY;
+extern float busJogX;
+
 void draw3DPassengers(Shader& shader) {
     for (auto& p : activePassengers) {
         if (p.isActive || p.isWalkingIn || p.isWalkingOut) {
@@ -433,6 +438,8 @@ void draw3DPassengers(Shader& shader) {
             glm::vec3 outside(3.5f, -1.0f, -4.0f);
             glm::vec3 door(2.0f, -1.0f, -4.0f);
             glm::vec3 inside(-1.0f, -1.0f, 2.0f);
+
+            bool isInside = p.isActive || (p.isWalkingIn && p.walkProgress >= 0.5f) || (p.isWalkingOut && p.walkProgress < 0.5f);
 
             if (p.isActive) {
                 pos = inside;
@@ -454,6 +461,11 @@ void draw3DPassengers(Shader& shader) {
                 }
             }
 
+            if (isInside) {
+                pos.x += busJogX;
+                pos.y += busJogY;
+            }
+
             model = glm::translate(model, pos);
             model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
             model = glm::scale(model, glm::vec3(p.scale));
@@ -471,6 +483,9 @@ void draw3DPassengers(Shader& shader) {
         glm::vec3 outside(3.5f, -1.0f, -4.0f);
         glm::vec3 door(2.0f, -1.0f, -4.0f);
         glm::vec3 inside(-0.5f, -1.0f, -4.0f); // Control stands next to driver
+
+        bool isInside = (isControlInside && !pendingControlChange) || 
+                        (pendingControlChange && ((!isControlInside && globalControlWalkProgress >= 0.5f) || (isControlInside && globalControlWalkProgress < 0.5f)));
 
         if (isControlInside && !pendingControlChange) {
             pos = inside;
@@ -494,6 +509,11 @@ void draw3DPassengers(Shader& shader) {
                     angle = 90.0f;
                 }
             }
+        }
+
+        if (isInside) {
+            pos.x += busJogX;
+            pos.y += busJogY;
         }
 
         model = glm::translate(model, pos);
@@ -981,6 +1001,16 @@ int main()
         updateBusLogic();
         processPassengersLogic();
 
+        // Calculate bus jogging
+        if (!busStopped) {
+            float time = (float)glfwGetTime();
+            busJogY = sin(time * 10.0f) * 0.02f; // Up-down
+            busJogX = cos(time * 7.0f) * 0.01f;  // Slight left-right
+        } else {
+            busJogY = 0.0f;
+            busJogX = 0.0f;
+        }
+
         // 1. Render Control Panel to FBO
         renderControlPanelToFBO(bus2DShader, station2DShader, path2DShader, simpleTextureShader, 
                                 VAOBus2D, VAOstations2D, VAOdoors2D, VAOcontrol2D, VAOsignature);
@@ -1003,8 +1033,12 @@ int main()
         
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)width / (float)height, 0.1f, 100.0f);
         unifiedShader.setMat4("uP", projection);
+
+        glm::vec3 originalCamPos = camera.Position;
+        camera.Position += glm::vec3(busJogX, busJogY, 0.0f);
         glm::mat4 view = camera.GetViewMatrix();
         unifiedShader.setMat4("uV", view);
+        camera.Position = originalCamPos; // Restore so movement logic isn't messed up
 
         // Render Tree (outside)
         glm::mat4 model = glm::mat4(1.0f);
@@ -1019,42 +1053,42 @@ int main()
 
         // Floor
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -1.0f, 0.0f));
+        model = glm::translate(model, glm::vec3(busJogX, -1.0f + busJogY, 0.0f));
         model = glm::scale(model, glm::vec3(4.0f, 0.1f, 10.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         // Left wall
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(-2.0f, 0.5f, 0.0f));
+        model = glm::translate(model, glm::vec3(-2.0f + busJogX, 0.5f + busJogY, 0.0f));
         model = glm::scale(model, glm::vec3(0.1f, 3.0f, 10.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         // Right wall (partial, for door)
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(2.0f, 0.5f, 1.0f));
+        model = glm::translate(model, glm::vec3(2.0f + busJogX, 0.5f + busJogY, 1.0f));
         model = glm::scale(model, glm::vec3(0.1f, 3.0f, 8.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         // Roof
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 2.0f, 0.0f));
+        model = glm::translate(model, glm::vec3(busJogX, 2.0f + busJogY, 0.0f));
         model = glm::scale(model, glm::vec3(4.0f, 0.1f, 10.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         // Back wall
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.5f, 5.0f));
+        model = glm::translate(model, glm::vec3(busJogX, 0.5f + busJogY, 5.0f));
         model = glm::scale(model, glm::vec3(4.0f, 3.0f, 0.1f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         // Front lower part (where control panel is)
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -0.25f, -5.0f));
+        model = glm::translate(model, glm::vec3(busJogX, -0.25f + busJogY, -5.0f));
         model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -1064,7 +1098,7 @@ int main()
         glDepthMask(GL_FALSE); // Don't write to depth buffer for transparent objects
         glBindTexture(GL_TEXTURE_2D, windshieldTex);
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 1.25f, -5.0f));
+        model = glm::translate(model, glm::vec3(busJogX, 1.25f + busJogY, -5.0f));
         model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -1083,7 +1117,7 @@ int main()
         glBindTexture(GL_TEXTURE_2D, doorTex);
         model = glm::mat4(1.0f);
         float doorAngle = doorProgress * -90.0f; // Opens 90 degrees outwards
-        model = glm::translate(model, glm::vec3(2.0f, 0.5f, -3.0f)); 
+        model = glm::translate(model, glm::vec3(2.0f + busJogX, 0.5f + busJogY, -3.0f)); 
         model = glm::rotate(model, glm::radians(doorAngle), glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, -1.0f)); 
         model = glm::scale(model, glm::vec3(0.1f, 3.0f, 2.0f));
@@ -1092,7 +1126,7 @@ int main()
 
         // Control Panel (using FBO texture for the screen, and red for the backing)
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -4.8f)); 
+        model = glm::translate(model, glm::vec3(busJogX, busJogY, -4.8f)); 
         model = glm::scale(model, glm::vec3(1.0f, 0.6f, 0.1f));
         unifiedShader.setMat4("uM", model);
 
@@ -1121,7 +1155,7 @@ int main()
         
         model = glm::mat4(1.0f);
         // Position the wheel in the bus (Y adjusted from 0.0f to 0.26f to compensate for centering translation)
-        model = glm::translate(model, glm::vec3(-1.0f, 0.26f, -4.5f));
+        model = glm::translate(model, glm::vec3(-1.0f + busJogX, 0.26f + busJogY, -4.5f));
         model = glm::rotate(model, glm::radians(-20.0f), glm::vec3(1.0f, 0.0f, 0.0f)); 
         model = glm::rotate(model, glm::radians(wheelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
         model = glm::scale(model, glm::vec3(0.11f));
@@ -1133,9 +1167,9 @@ int main()
         // Cigarette
         model = glm::mat4(1.0f);
         // Base position near the right side of the wheel (slightly lower: 0.45f -> 0.42f)
-        glm::vec3 cigaretteBasePos = glm::vec3(-0.7f, 0.38f, -4.6f);
+        glm::vec3 cigaretteBasePos = glm::vec3(-0.7f + busJogX, 0.38f + busJogY, -4.6f);
         // Camera (driver's face) is roughly at (-1.0f, 0.5f, -4.0f)
-        glm::vec3 cigaretteTargetPos = glm::vec3(-0.95f, 0.38f, -4.15f);
+        glm::vec3 cigaretteTargetPos = glm::vec3(-0.95f + busJogX, 0.38f + busJogY, -4.15f);
 
         float smokingCycle = 10.0f; // total cycle in seconds
         float currentTime = (float)glfwGetTime();
@@ -1166,7 +1200,7 @@ int main()
         glDepthMask(GL_FALSE);
         glBindTexture(GL_TEXTURE_2D, windshieldTex);
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 1.25f, -5.0f));
+        model = glm::translate(model, glm::vec3(busJogX, 1.25f + busJogY, -5.0f));
         model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
