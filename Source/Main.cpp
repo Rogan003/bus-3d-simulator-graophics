@@ -37,6 +37,7 @@ int numberOfTickets = 0;
 int currentStation = 0;
 int nextStation = 1;
 float distanceTraveled = 0.0f;
+float sceneOffset = 0.0f;
 double stopStartTime = 0.0;
 
 struct PassengerModel {
@@ -986,6 +987,8 @@ int main()
     Shader unifiedShader("../Shaders/basic.vert", "../Shaders/basic.frag");
 
     Model tree("../Resources/tree/Tree.obj");
+    Model lamborghini("../Resources/lamborghini/2021_lamborghini_countach_lpi_800-4.obj");
+    Model porsche("../Resources/porsche/free_porsche_911_carrera_4s.obj");
     Model wheel("../Resources/wheel/merc steering.obj");
     Model cigarette("../Resources/cigarette/CHAHIN_CIGARETTE_BUTT.obj");
 
@@ -1036,6 +1039,10 @@ int main()
             float time = (float)glfwGetTime();
             busJogY = sin(time * 10.0f) * 0.02f; // Up-down
             busJogX = cos(time * 7.0f) * 0.01f;  // Slight left-right
+            
+            static float sceneTime = 0.0f;
+            sceneTime += deltaTime;
+            sceneOffset = sin(sceneTime * 0.2f) * 15.0f; // Move scene left-right (slower and less range)
         } else {
             busJogY = 0.0f;
             busJogX = 0.0f;
@@ -1070,11 +1077,25 @@ int main()
         unifiedShader.setMat4("uV", view);
         camera.Position = originalCamPos; // Restore so movement logic isn't messed up
 
-        // Render Tree (outside)
+        // Render Scene objects (outside)
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -1.0f, -15.0f));
+        model = glm::translate(model, glm::vec3(sceneOffset, -1.0f, -15.0f));
         unifiedShader.setMat4("uM", model);
         tree.Draw(unifiedShader);
+
+        // Lamborghini (placed further to the right)
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(sceneOffset + 18.0f, 0.5f, -40.0f));
+        model = glm::scale(model, glm::vec3(1.2f)); // Larger to compensate for distance
+        unifiedShader.setMat4("uM", model);
+        lamborghini.Draw(unifiedShader);
+
+        // Porsche (placed further to the left)
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(sceneOffset - 18.0f, 0.5f, -40.0f));
+        model = glm::scale(model, glm::vec3(1.2f)); // Larger to compensate for distance
+        unifiedShader.setMat4("uM", model);
+        porsche.Draw(unifiedShader);
 
         // Render Bus Body (main shell)
         glBindVertexArray(cubeVAO);
@@ -1181,7 +1202,11 @@ int main()
         glBindTexture(GL_TEXTURE_2D, wheelTex);
         
         // Simulating wheel movement (slight left-right rotation)
-        float wheelRotation = sin(glfwGetTime() * 1.5f) * 15.0f; // Oscillation between -15 and 15 degrees
+        static float wheelTime = 0.0f;
+        if (!busStopped) {
+            wheelTime += deltaTime;
+        }
+        float wheelRotation = sin(wheelTime * 1.5f) * 15.0f; // Oscillation between -15 and 15 degrees
         
         model = glm::mat4(1.0f);
         // Position the wheel in the bus (Y adjusted from 0.0f to 0.26f to compensate for centering translation)
