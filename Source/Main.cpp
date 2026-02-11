@@ -42,11 +42,38 @@ double stopStartTime = 0.0;
 struct PassengerModel {
     int modelIndex; // 0-14 for person1-15
     float scale;
+    float rotationOffset;
     bool isActive;
     bool isWalkingIn;
     bool isWalkingOut;
     float walkProgress; // 0.0 to 1.0
 };
+
+struct ModelConfig {
+    float baseScale;
+    float rotationAdjustment; // Degrees
+    float verticalOffset;     // Translation up/down
+};
+
+ModelConfig personConfigs[15] = {
+    {0.15f, 0.0f, 0.0f},   // 1. Perfection
+    {0.2f, 0.0f, 0.0f},    // 2. Smaller 2.5x (0.5 / 2.5 = 0.2)
+    {6.0f, 0.0f, 0.0f},    // 3. 6x higher (1.0 * 6 = 6.0)
+    {1.2f, 180.0f, 0.0f},  // 4. 20% higher (1.2), rotated 180 to face front (it was back)
+    {2.0f, 0.0f, 0.0f},    // 5. 2x bigger (1.0 * 2 = 2.0)
+    {1.0f, 0.0f, 0.33f},   // 6. Good size, translate up 1/3 of door height (approx 0.33f if door is 1.0f or similar)
+    {1.2f, 0.0f, 0.0f},    // 7. 20% higher
+    {0.7f, 0.0f, 0.0f},    // 8. 30% smaller
+    {1.0f, 0.0f, 0.0f},    // 9. Looks good
+    {0.1f, 0.0f, 0.0f},    // 10. 10x smaller
+    {1.3f, 0.0f, 0.5f},    // 11. 30% larger, translate up 50%
+    {0.05f, 0.0f, 0.0f},   // 12. 200x smaller (User said 20x, but 20x smaller of 1.0 is 0.05) - Wait, 20x smaller is 1/20 = 0.05
+    {1.3f, 90.0f, 0.0f},   // 13. 30% larger, rotate left (90 degrees) to face driver
+    {0.6f, 0.0f, 0.0f},    // 14. 40% smaller
+    {2.5f, 0.0f, 0.0f}     // 15. 2.5x larger
+};
+
+ModelConfig controlConfig = {1.0f, 0.0f, 0.0f};
 std::vector<PassengerModel> activePassengers;
 std::vector<Model*> personModels;
 Model* controlModel;
@@ -401,7 +428,8 @@ void processPassengersLogic() {
                 }
                 PassengerModel p;
                 p.modelIndex = rand() % 15;
-                p.scale = 0.8f + static_cast <float> (rand()) / ( static_cast <float> (RAND_MAX/(1.2f-0.8f)));
+                p.scale = personConfigs[p.modelIndex].baseScale;
+                p.rotationOffset = personConfigs[p.modelIndex].rotationAdjustment;
                 p.isActive = false;
                 p.isWalkingIn = true;
                 p.isWalkingOut = false;
@@ -465,9 +493,10 @@ void draw3DPassengers(Shader& shader) {
                 pos.x += busJogX;
                 pos.y += busJogY;
             }
+            pos.y += personConfigs[p.modelIndex].verticalOffset;
 
             model = glm::translate(model, pos);
-            model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::rotate(model, glm::radians(angle + p.rotationOffset), glm::vec3(0.0f, 1.0f, 0.0f));
             model = glm::scale(model, glm::vec3(p.scale));
             shader.setMat4("uM", model);
             personModels[p.modelIndex]->Draw(shader);
@@ -515,10 +544,11 @@ void draw3DPassengers(Shader& shader) {
             pos.x += busJogX;
             pos.y += busJogY;
         }
+        pos.y += controlConfig.verticalOffset;
 
         model = glm::translate(model, pos);
-        model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(1.0f));
+        model = glm::rotate(model, glm::radians(angle + controlConfig.rotationAdjustment), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(controlConfig.baseScale));
         shader.setMat4("uM", model);
         controlModel->Draw(shader);
     }
