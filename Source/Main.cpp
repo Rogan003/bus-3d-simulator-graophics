@@ -227,7 +227,7 @@ void draw2DText() {
 }
 
 void updateBusLogic() {
-    const float speed = 0.15f;
+    const float speed = 0.3f;
     const int segments = 100;
     const double stopDuration = 10.0;
 
@@ -275,7 +275,7 @@ void updateBusLogic() {
             lastY = y;
         }
 
-        distanceTraveled += speed * deltaTime;
+        distanceTraveled += (speed * 0.3f) * deltaTime;
 
         if (distanceTraveled >= totalLength) {
             if (isControlInside) {
@@ -327,7 +327,7 @@ void passengersInputCallback(GLFWwindow* window, int button, int action, int mod
     else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
         pendingPassengersChange--;
     }
-}// TODO: Control not writing tickets??? Slow passenger/control movement? Closing doors, no one can enter? Culling/depth
+}// TODO: Closing doors, no one can enter? Culling/depth? VAO/VBO writing outside the loop?
 
 void controlInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (busStopped && !isPassengerWalking && key == GLFW_KEY_K && action == GLFW_PRESS) {
@@ -386,7 +386,7 @@ void processPassengersLogic() {
         if (!found) {
             for (auto it = activePassengers.begin(); it != activePassengers.end(); ++it) {
                 if (it->isWalkingIn || it->isWalkingOut) {
-                    it->walkProgress += deltaTime / 1.5f;
+                    it->walkProgress += deltaTime;
                     if (it->walkProgress >= 1.0f) {
                         it->walkProgress = 0.0f;
                         if (it->isWalkingIn) {
