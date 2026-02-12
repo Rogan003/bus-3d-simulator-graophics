@@ -320,17 +320,17 @@ void updateBusLogic() {
 }
 
 void passengersInputCallback(GLFWwindow* window, int button, int action, int mods) {
-    if (!busStopped) return;
+    if (!busStopped || isPassengerWalking || pendingControlChange)  return;
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
         pendingPassengersChange++;
     }
     else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
         pendingPassengersChange--;
     }
-}
+}// TODO: Control not writing tickets??? Slow passenger/control movement? Closing doors, no one can enter? Culling/depth
 
 void controlInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (busStopped && key == GLFW_KEY_K && action == GLFW_PRESS) {
+    if (busStopped && !isPassengerWalking && key == GLFW_KEY_K && action == GLFW_PRESS) {
         if (!isControlInside && !pendingControlChange) {
             pendingControlChange = true;
         }
