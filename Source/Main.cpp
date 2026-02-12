@@ -57,21 +57,21 @@ struct ModelConfig {
 };
 
 ModelConfig personConfigs[15] = {
-    {0.15f, 0.0f, 0.0f},   // 1. Perfection
-    {0.2f, 0.0f, 0.0f},    // 2. Smaller 2.5x (0.5 / 2.5 = 0.2)
-    {6.0f, 0.0f, 0.0f},    // 3. 6x higher (1.0 * 6 = 6.0)
-    {1.2f, 180.0f, 0.0f},  // 4. 20% higher (1.2), rotated 180 to face front (it was back)
-    {2.0f, 0.0f, 0.0f},    // 5. 2x bigger (1.0 * 2 = 2.0)
-    {1.0f, 0.0f, 0.33f},   // 6. Good size, translate up 1/3 of door height (approx 0.33f if door is 1.0f or similar)
-    {1.2f, 0.0f, 0.0f},    // 7. 20% higher
-    {0.7f, 0.0f, 0.0f},    // 8. 30% smaller
-    {1.0f, 0.0f, 0.0f},    // 9. Looks good
-    {0.1f, 0.0f, 0.0f},    // 10. 10x smaller
-    {1.3f, 0.0f, 0.5f},    // 11. 30% larger, translate up 50%
-    {0.05f, 0.0f, 0.0f},   // 12. 200x smaller (User said 20x, but 20x smaller of 1.0 is 0.05) - Wait, 20x smaller is 1/20 = 0.05
-    {1.3f, 90.0f, 0.0f},   // 13. 30% larger, rotate left (90 degrees) to face driver
-    {0.6f, 0.0f, 0.0f},    // 14. 40% smaller
-    {2.5f, 0.0f, 0.0f}     // 15. 2.5x larger
+    {1.0f, 0.0f, 0.0f},
+    {0.3f, 0.0f, 0.2f},
+    {15.0f, 0.0f, 0.0f},
+    {0.6f, 0.0f, 0.0f},
+    {2.0f, 0.0f, 0.0f},
+    {1.0f, 0.0f, 1.0f},
+    {1.2f, 0.0f, 0.0f},
+    {0.5f, 0.0f, 0.0f},
+    {1.0f, 0.0f, 0.0f},
+    {0.2f, 0.0f, 0.1f},
+    {1.1f, 0.0f, 1.0f},
+    {0.01f, 0.0f, 0.1f},
+    {1.4f, 90.0f, 0.0f},
+    {0.6f, 0.0f, 0.05f},
+    {2.5f, 0.0f, 0.0f}
 };
 
 ModelConfig controlConfig = {1.0f, 0.0f, 0.0f};
