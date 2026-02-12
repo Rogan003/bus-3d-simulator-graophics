@@ -327,7 +327,7 @@ void passengersInputCallback(GLFWwindow* window, int button, int action, int mod
     else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
         pendingPassengersChange--;
     }
-}// TODO: Closing doors, no one can enter? Culling/depth? VAO/VBO writing outside the loop?
+}
 
 void controlInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (busStopped && !isPassengerWalking && key == GLFW_KEY_K && action == GLFW_PRESS) {
