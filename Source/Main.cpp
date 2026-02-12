@@ -714,6 +714,57 @@ float cubeVertices[] = {
     -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
 };
 
+float windshieldVertices[] = {
+    // positions          // normals           // texture coords
+    // Back Face (Normal is 0,0,-1) - Fixed to CCW
+     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
+
+    // Front Face (Normal 0,0,1) - CCW from outside
+    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+
+    // Left Face (Normal -1,0,0) - CCW from outside
+    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+
+    // Right Face (Normal 1,0,0) - Fixed to CCW
+     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+
+    // Bottom Face (Normal 0,-1,0) - CCW from outside
+    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+
+    // Top Face (Normal 0,1,0) - CCW from outside
+    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
+};
+
 unsigned signatureTex;
 
 void drawSignature(unsigned int shader, unsigned int vao) {
@@ -892,9 +943,9 @@ int main()
 
     float verticesSignature[] = {
         0.5f, -0.7f, 0.0f, 1.0f, // gornje levo teme
-        1.0f, -0.7f, 1.0f, 1.0f, // gornje desno teme
-        1.0f, -1.0f, 1.0f, 0.0f, // donje desno teme
         0.5f, -1.0f, 0.0f, 0.0f, // donje levo teme
+        1.0f, -1.0f, 1.0f, 0.0f, // donje desno teme
+        1.0f, -0.7f, 1.0f, 1.0f, // gornje desno teme
     };
 
     unsigned int VAOsignature;
@@ -902,6 +953,9 @@ int main()
 
     unsigned int cubeVAO, cubeVBO;
     formVAO3D(cubeVertices, sizeof(cubeVertices), cubeVAO, cubeVBO);
+
+    unsigned int windshieldVAO, windshieldVBO;
+    formVAO3D(windshieldVertices, sizeof(windshieldVertices), windshieldVAO, windshieldVBO);
 
     unsigned int rectVAO, rectVBO;
     float rectVertices[] = {
@@ -916,7 +970,7 @@ int main()
     formVAO3D(rectVertices, sizeof(rectVertices), rectVAO, rectVBO);
 
     unsigned int busColorTex = createColorTexture(0.3f, 0.3f, 0.3f); // Grey-ish bus
-    unsigned int windshieldTex = createColorTexture(0.1f, 0.1f, 0.1f, 0.5f); // Dark transparent
+    unsigned int windshieldTex = createColorTexture(0.1f, 0.1f, 0.1f, 0.5f); // Light transparent
     unsigned int controlPanelTex = createColorTexture(1.0f, 0.0f, 0.0f); // Red
     unsigned int wheelTex = createColorTexture(0.15f, 0.15f, 0.15f); // Dark gray
     unsigned int doorTex = createColorTexture(0.2f, 0.6f, 0.3f); // Dark doors
@@ -936,9 +990,9 @@ int main()
 
     float verticesBus2D[] = {
         -0.06f, 0.1f, 0.0f, 1.0f,
-        0.06f, 0.1f, 1.0f, 1.0f,
-        0.06f, -0.1f, 1.0f, 0.0f,
         -0.06f, -0.1f, 0.0f, 0.0f,
+        0.06f, -0.1f, 1.0f, 0.0f,
+        0.06f, 0.1f, 1.0f, 1.0f,
     };
     unsigned int VAOBus2D;
     formVAOTexture(verticesBus2D, sizeof(verticesBus2D), VAOBus2D);
@@ -958,18 +1012,18 @@ int main()
 
     float verticesDoors2D[] = {
         -1.0f, -0.5f, 0.0f, 1.0f,
-        -0.65, -0.5f, 1.0f, 1.0f,
-        -0.65, -1.0f, 1.0f, 0.0f,
         -1.0f, -1.0f, 0.0f, 0.0f,
+        -0.65, -1.0f, 1.0f, 0.0f,
+        -0.65, -0.5f, 1.0f, 1.0f,
     };
     unsigned int VAOdoors2D;
     formVAOTexture(verticesDoors2D, sizeof(verticesDoors2D), VAOdoors2D);
 
     float verticesControl2D[] = {
         -1.0f, 1.0f, 0.0f, 1.0f,
-        -0.75f, 1.0f, 1.0f, 1.0f,
-        -0.75f, 0.65f, 1.0f, 0.0f,
         -1.0f, 0.65f, 0.0f, 0.0f,
+        -0.75f, 0.65f, 1.0f, 0.0f,
+        -0.75f, 1.0f, 1.0f, 1.0f,
     };
     unsigned int VAOcontrol2D;
     formVAOTexture(verticesControl2D, sizeof(verticesControl2D), VAOcontrol2D);
@@ -1144,16 +1198,6 @@ int main()
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Windshield (Transparent) - Moved here to be drawn after opaque but before interior items
-        glEnable(GL_BLEND);
-        glDepthMask(GL_FALSE); // Don't write to depth buffer for transparent objects
-        glBindTexture(GL_TEXTURE_2D, windshieldTex);
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(busJogX, 1.25f + busJogY, -5.0f));
-        model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
-        unifiedShader.setMat4("uM", model);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glDepthMask(GL_TRUE); // Re-enable depth writing
 
         // Door (Synchronized with busStopped)
         float doorSpeed = 2.0f; 
@@ -1254,6 +1298,7 @@ int main()
         glEnable(GL_BLEND);
         glDepthMask(GL_FALSE);
         glBindTexture(GL_TEXTURE_2D, windshieldTex);
+        glBindVertexArray(windshieldVAO);
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(busJogX, 1.25f + busJogY, -5.0f));
         model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
