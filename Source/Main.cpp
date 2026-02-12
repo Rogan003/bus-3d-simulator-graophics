@@ -914,6 +914,8 @@ int main()
 
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    lastX = mode->width / 2.0f;
+    lastY = mode->height / 2.0f;
 
     GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "Bus 3D Simulator", monitor, NULL);
     if (window == NULL) return endProgram("Prozor nije uspeo da se kreira.");
