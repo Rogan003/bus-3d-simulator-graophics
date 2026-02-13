@@ -5,24 +5,19 @@
 #include <map>
 #include <iostream>
 #include <vector>
-#include <ctime>
-#include <cstdlib>
 
 #include "model.hpp"
 #include "camera.hpp"
 #include "../Header/Util.h"
 
-// settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
-// camera
 Camera camera(glm::vec3(0.0f, 0.0f, 5.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
-// 2D Project State
 struct Station {
     float x, y;
     int number;
@@ -95,11 +90,9 @@ void initializeStations() {
     stations[9].x = -0.45f; stations[9].y = 0.25f; stations[9].number = 9;
 }
 
-// timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-// 2D Rendering globals (FBO)
 unsigned int fbo, fboTex;
 const unsigned int FBO_WIDTH = 1024;
 const unsigned int FBO_HEIGHT = 1024;
@@ -121,7 +114,6 @@ void setupFBO() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-// Global textures for 2D
 unsigned bus2DTex;
 unsigned doorsOpenTex;
 unsigned doorsClosedTex;
@@ -131,13 +123,12 @@ void renderText(unsigned int shader, std::string text, float x, float y, float s
 void drawSignature(unsigned int shader, unsigned int vao);
 extern unsigned int textShader;
 
-// 2D draw functions (modified from Projekat2D)
 void draw2DStations(unsigned int shader, unsigned int vao) {
     glUseProgram(shader);
     GLint loc = glGetUniformLocation(shader, "uOffset");
+    glBindVertexArray(vao);
     for (int i = 0; i < 10; i++) {
         glUniform2f(loc, stations[i].x, stations[i].y);
-        glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 42); // NUM_SLICES + 2
     }
 
@@ -160,20 +151,24 @@ void draw2DBus(unsigned int shader, unsigned int vao) {
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
-void draw2DPaths(unsigned int shader) {
-    glUseProgram(shader);
+struct PathData {
+    unsigned int VAO, VBO;
+    int count;
+};
+std::vector<PathData> pathDataList;
+
+void init2DPaths() {
     const int segments = 50;
     for (int i = 0; i < 10; i++) {
         int next = (i + 1) % 10;
-        float cx = (stations[i].x + stations[next].x) / 2.0f;
-        float cy = (stations[i].y + stations[next].y) / 2.0f;
         float dx = stations[next].x - stations[i].x;
         float dy = stations[next].y - stations[i].y;
-        float offset = 0.35f;
+        float cx = (stations[i].x + stations[next].x) / 2.0f;
+        float cy = (stations[i].y + stations[next].y) / 2.0f;
         float length_dir = sqrt(dx*dx + dy*dy);
         if (length_dir > 0.0f) {
-            cx += -dy / length_dir * offset;
-            cy += dx / length_dir * offset;
+            cx += -dy / length_dir * 0.35f;
+            cy += dx / length_dir * 0.35f;
         }
         std::vector<float> vertices;
         for (int j = 0; j <= segments; j++) {
@@ -184,18 +179,25 @@ void draw2DPaths(unsigned int shader) {
             vertices.push_back(x);
             vertices.push_back(y);
         }
-        unsigned int VAO, VBO;
-        glGenVertexArrays(1, &VAO);
-        glGenBuffers(1, &VBO);
-        glBindVertexArray(VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        PathData pd;
+        pd.count = vertices.size() / 2;
+        glGenVertexArrays(1, &pd.VAO);
+        glGenBuffers(1, &pd.VBO);
+        glBindVertexArray(pd.VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, pd.VBO);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
-        glLineWidth(3.0f);
-        glDrawArrays(GL_LINE_STRIP, 0, vertices.size() / 2);
-        glDeleteBuffers(1, &VBO);
-        glDeleteVertexArrays(1, &VAO);
+        pathDataList.push_back(pd);
+    }
+}
+
+void draw2DPaths(unsigned int shader) {
+    glUseProgram(shader);
+    glLineWidth(3.0f);
+    for (const auto& pd : pathDataList) {
+        glBindVertexArray(pd.VAO);
+        glDrawArrays(GL_LINE_STRIP, 0, pd.count);
     }
 }
 
@@ -341,10 +343,6 @@ void renderControlPanelToFBO(unsigned int busShader, unsigned int stationShader,
                               unsigned int busVAO, unsigned int stationVAO, unsigned int doorVAO, unsigned int controlVAO, unsigned int signatureVAO) {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
-    glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
 
     drawSignature(simpleShader, signatureVAO);
     draw2DStations(stationShader, stationVAO);
@@ -354,7 +352,6 @@ void renderControlPanelToFBO(unsigned int busShader, unsigned int stationShader,
     draw2DText();
     draw2DControl(simpleShader, controlVAO);
 
-    glEnable(GL_DEPTH_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -555,7 +552,6 @@ void draw3DPassengers(Shader& shader) {
     }
 }
 
-// render settings
 bool depthTestEnabled = true;
 bool faceCullingEnabled = false;
 
@@ -611,11 +607,8 @@ void preprocessTexture(unsigned& texture, const char* filepath) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
-unsigned int VBO;
-
-void formVAOTexture(float* vertices, size_t size, unsigned int& vao) {
+void formVAOTexture(float* vertices, size_t size, unsigned int& vao, unsigned int& vbo) {
     glGenVertexArrays(1, &vao);
-    unsigned int vbo;
     glGenBuffers(1, &vbo);
 
     glBindVertexArray(vao);
@@ -631,12 +624,12 @@ void formVAOTexture(float* vertices, size_t size, unsigned int& vao) {
     glEnableVertexAttribArray(1);
 }
 
-void formVAOPositionOnly(float* vertices, size_t size, unsigned int& vao) {
+void formVAOPositionOnly(float* vertices, size_t size, unsigned int& vao, unsigned int& vbo) {
     glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &vbo);
 
     glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
 
     // Atribut 0 (pozicija):
@@ -664,8 +657,6 @@ void formVAO3D(float* vertices, size_t size, unsigned int& vao, unsigned int& vb
 }
 
 float cubeVertices[] = {
-    // positions          // normals           // texture coords
-    // Back Face (Normal is 0,0,-1) - CCW from outside
     -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
      0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
      0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
@@ -673,7 +664,6 @@ float cubeVertices[] = {
     -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
     -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
 
-    // Front Face (Normal 0,0,1) - CCW from outside
     -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
      0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
      0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
@@ -681,7 +671,6 @@ float cubeVertices[] = {
     -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
     -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
 
-    // Left Face (Normal -1,0,0) - CCW from outside
     -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
     -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
     -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
@@ -689,7 +678,6 @@ float cubeVertices[] = {
     -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
     -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
 
-    // Right Face (Normal 1,0,0) - CCW from outside
      0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
      0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
      0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
@@ -697,7 +685,6 @@ float cubeVertices[] = {
      0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
      0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
 
-    // Bottom Face (Normal 0,-1,0) - CCW from outside
     -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
      0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
      0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
@@ -705,7 +692,6 @@ float cubeVertices[] = {
     -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
     -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
 
-    // Top Face (Normal 0,1,0) - CCW from outside
     -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
     -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
      0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
@@ -844,6 +830,7 @@ void renderText(unsigned int shader, std::string text, float x, float y, float s
     glUniform1i(glGetUniformLocation(shader, "text"), 0);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(textVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, textVBO);
 
     float startX = x;
     for (char c : text) {
@@ -866,13 +853,12 @@ void renderText(unsigned int shader, std::string text, float x, float y, float s
         };
 
         glBindTexture(GL_TEXTURE_2D, ch.TextureID);
-        glBindBuffer(GL_ARRAY_BUFFER, textVBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
         startX += (ch.Advance >> 6) * scale / screenWidth * 2.0f;
     }
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -943,8 +929,8 @@ int main()
         1.0f, -0.7f, 1.0f, 1.0f, // gornje desno teme
     };
 
-    unsigned int VAOsignature;
-    formVAOTexture(verticesSignature, sizeof(verticesSignature), VAOsignature);
+    unsigned int VAOsignature, VBOsignature;
+    formVAOTexture(verticesSignature, sizeof(verticesSignature), VAOsignature, VBOsignature);
 
     unsigned int cubeVAO, cubeVBO;
     formVAO3D(cubeVertices, sizeof(cubeVertices), cubeVAO, cubeVBO);
@@ -989,8 +975,8 @@ int main()
         0.06f, -0.1f, 1.0f, 0.0f,
         0.06f, 0.1f, 1.0f, 1.0f,
     };
-    unsigned int VAOBus2D;
-    formVAOTexture(verticesBus2D, sizeof(verticesBus2D), VAOBus2D);
+    unsigned int VAOBus2D, VBOBus2D;
+    formVAOTexture(verticesBus2D, sizeof(verticesBus2D), VAOBus2D, VBOBus2D);
 
     float verticesStation2D[42 * 2];
     float xc2D = 0.0f, yc2D = 0.0f, r2D = 0.1f;
@@ -1002,8 +988,8 @@ int main()
         verticesStation2D[i * 2 + 0] = cos(angle) * r2D / aspect2D + xc2D;
         verticesStation2D[i * 2 + 1] = sin(angle) * r2D + yc2D;
     }
-    unsigned int VAOstations2D;
-    formVAOPositionOnly(verticesStation2D, sizeof(verticesStation2D), VAOstations2D);
+    unsigned int VAOstations2D, VBOstations2D;
+    formVAOPositionOnly(verticesStation2D, sizeof(verticesStation2D), VAOstations2D, VBOstations2D);
 
     float verticesDoors2D[] = {
         -1.0f, -0.5f, 0.0f, 1.0f,
@@ -1011,8 +997,8 @@ int main()
         -0.65, -1.0f, 1.0f, 0.0f,
         -0.65, -0.5f, 1.0f, 1.0f,
     };
-    unsigned int VAOdoors2D;
-    formVAOTexture(verticesDoors2D, sizeof(verticesDoors2D), VAOdoors2D);
+    unsigned int VAOdoors2D, VBOdoors2D;
+    formVAOTexture(verticesDoors2D, sizeof(verticesDoors2D), VAOdoors2D, VBOdoors2D);
 
     float verticesControl2D[] = {
         -1.0f, 1.0f, 0.0f, 1.0f,
@@ -1020,10 +1006,11 @@ int main()
         -0.75f, 0.65f, 1.0f, 0.0f,
         -0.75f, 1.0f, 1.0f, 1.0f,
     };
-    unsigned int VAOcontrol2D;
-    formVAOTexture(verticesControl2D, sizeof(verticesControl2D), VAOcontrol2D);
+    unsigned int VAOcontrol2D, VBOcontrol2D;
+    formVAOTexture(verticesControl2D, sizeof(verticesControl2D), VAOcontrol2D, VBOcontrol2D);
 
-    // Load person models
+    init2DPaths();
+
     for (int i = 1; i <= 15; i++) {
         std::string path = "../Resources/person" + std::to_string(i) + "/model.obj";
         personModels.push_back(new Model(path));
@@ -1034,6 +1021,8 @@ int main()
     initFreeType("../Projekat2D/Resources/font.ttf");
 
     Shader unifiedShader("../Shaders/basic.vert", "../Shaders/basic.frag");
+    unifiedShader.use();
+    unifiedShader.setInt("uDiffMap1", 0);
 
     Model tree("../Resources/tree/Tree.obj");
     Model lamborghini("../Resources/lamborghini/2021_lamborghini_countach_lpi_800-4.obj");
@@ -1097,18 +1086,13 @@ int main()
             busJogX = 0.0f;
         }
 
-        // 1. Render Control Panel to FBO
         renderControlPanelToFBO(bus2DShader, station2DShader, path2DShader, simpleTextureShader, 
                                 VAOBus2D, VAOstations2D, VAOdoors2D, VAOcontrol2D, VAOsignature);
 
-        // Reset viewport to screen size
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
-        if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
-        else glDisable(GL_DEPTH_TEST);
 
-        glClearColor(0.3f, 0.4f, 0.8f, 1.0f); // Set sky color for main scene
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         unifiedShader.use();
@@ -1124,22 +1108,19 @@ int main()
         camera.Position += glm::vec3(busJogX, busJogY, 0.0f);
         glm::mat4 view = camera.GetViewMatrix();
         unifiedShader.setMat4("uV", view);
-        camera.Position = originalCamPos; // Restore so movement logic isn't messed up
+        camera.Position = originalCamPos;
 
-        // Render Scene objects (outside)
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(sceneOffset, -1.0f, -15.0f));
         unifiedShader.setMat4("uM", model);
         tree.Draw(unifiedShader);
 
-        // Lamborghini (placed further to the right)
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(sceneOffset + 18.0f, 0.5f, -40.0f));
-        model = glm::scale(model, glm::vec3(1.2f)); // Larger to compensate for distance
+        model = glm::scale(model, glm::vec3(1.2f));
         unifiedShader.setMat4("uM", model);
         lamborghini.Draw(unifiedShader);
 
-        // Porsche (placed further to the left)
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(sceneOffset - 18.0f, 0.5f, -40.0f));
         model = glm::scale(model, glm::vec3(1.2f)); // Larger to compensate for distance
@@ -1149,52 +1130,45 @@ int main()
         // Render Bus Body (main shell)
         glBindVertexArray(cubeVAO);
         glActiveTexture(GL_TEXTURE0);
+
         glBindTexture(GL_TEXTURE_2D, busColorTex);
 
-        // Floor
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(busJogX, -1.0f + busJogY, 0.0f));
         model = glm::scale(model, glm::vec3(4.0f, 0.1f, 10.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Left wall
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(-2.0f + busJogX, 0.5f + busJogY, 0.0f));
         model = glm::scale(model, glm::vec3(0.1f, 3.0f, 10.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Right wall (partial, for door)
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(2.0f + busJogX, 0.5f + busJogY, 1.0f));
         model = glm::scale(model, glm::vec3(0.1f, 3.0f, 8.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Roof
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(busJogX, 2.0f + busJogY, 0.0f));
         model = glm::scale(model, glm::vec3(4.0f, 0.1f, 10.0f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Back wall
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(busJogX, 0.5f + busJogY, 5.0f));
         model = glm::scale(model, glm::vec3(4.0f, 3.0f, 0.1f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Front lower part (where control panel is)
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(busJogX, -0.25f + busJogY, -5.0f));
         model = glm::scale(model, glm::vec3(4.0f, 1.5f, 0.1f));
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-
-        // Door (Synchronized with busStopped)
         float doorSpeed = 2.0f; 
         if (busStopped) {
             doorProgress += deltaTime * doorSpeed;
@@ -1214,21 +1188,27 @@ int main()
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Control Panel (using FBO texture for the screen, and red for the backing)
+        glBindTexture(GL_TEXTURE_2D, controlPanelTex);
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(busJogX, busJogY, -4.8f)); 
         model = glm::scale(model, glm::vec3(1.0f, 0.6f, 0.1f));
         unifiedShader.setMat4("uM", model);
-
-        // Draw the red base
-        glBindTexture(GL_TEXTURE_2D, controlPanelTex);
-        glBindVertexArray(cubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        // Draw the functional screen on front face
+        unifiedShader.setFloat("uLightIntensity", 5.0f); // Make it bright
+        glBindTexture(GL_TEXTURE_2D, lightTex);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, lightPos);
+        model = glm::scale(model, glm::vec3(0.2f)); 
+        unifiedShader.setMat4("uM", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        unifiedShader.setFloat("uLightIntensity", lightIntensity);
+
         glBindTexture(GL_TEXTURE_2D, fboTex);
         glBindVertexArray(rectVAO);
-        glm::mat4 screenModel = model;
+        glm::mat4 screenModel = glm::mat4(1.0f);
+        screenModel = glm::translate(screenModel, glm::vec3(busJogX, busJogY, -4.8f)); 
+        screenModel = glm::scale(screenModel, glm::vec3(1.0f, 0.6f, 0.1f));
         screenModel = glm::translate(screenModel, glm::vec3(0.0f, 0.0f, 0.501f)); // Slightly in front of the cube face
         unifiedShader.setMat4("uM", screenModel);
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -1260,16 +1240,14 @@ int main()
 
         // Cigarette
         model = glm::mat4(1.0f);
-        // Base position near the right side of the wheel (slightly lower: 0.45f -> 0.42f)
         glm::vec3 cigaretteBasePos = glm::vec3(-0.7f + busJogX, 0.38f + busJogY, -4.6f);
-        // Camera (driver's face) is roughly at (-1.0f, 0.5f, -4.0f)
         glm::vec3 cigaretteTargetPos = glm::vec3(-0.95f + busJogX, 0.38f + busJogY, -4.15f);
 
         float smokingCycle = 10.0f; // total cycle in seconds
         float currentTime = (float)glfwGetTime();
         float timeInCycle = fmod(currentTime, smokingCycle);
         
-        float smokingDuration = 3.0f; // how long it takes to move to face and back
+        float smokingDuration = 3.0f;
         glm::vec3 currentCigarettePos = cigaretteBasePos;
 
         if (timeInCycle < smokingDuration) {
@@ -1289,7 +1267,6 @@ int main()
         cigarette.Draw(unifiedShader);
 
 
-        // Windshield (Transparent) - Draw after opaque interior and passengers
         glEnable(GL_BLEND);
         glDepthMask(GL_FALSE);
         glBindTexture(GL_TEXTURE_2D, windshieldTex);
@@ -1301,9 +1278,8 @@ int main()
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glDepthMask(GL_TRUE);
 
-        // Light Source (Visual Representation)
         unifiedShader.use();
-        unifiedShader.setFloat("uLightIntensity", 5.0f); // Make it bright
+        unifiedShader.setFloat("uLightIntensity", 5.0f);
         glBindTexture(GL_TEXTURE_2D, lightTex);
         model = glm::mat4(1.0f);
         model = glm::translate(model, lightPos);
@@ -1311,13 +1287,67 @@ int main()
         unifiedShader.setMat4("uM", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         
+        glDisable(GL_DEPTH_TEST);
         drawSignature(simpleTextureShader, VAOsignature);
+        if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        while (glfwGetTime() - currentFrame < 1 / 75.0) {}
+        while (glfwGetTime() - currentFrame < 1.0 / 75.0) {}
     }
+
+    glDeleteVertexArrays(1, &VAOsignature);
+    glDeleteBuffers(1, &VBOsignature);
+    glDeleteVertexArrays(1, &cubeVAO);
+    glDeleteBuffers(1, &cubeVBO);
+    glDeleteVertexArrays(1, &windshieldVAO);
+    glDeleteBuffers(1, &windshieldVBO);
+    glDeleteVertexArrays(1, &rectVAO);
+    glDeleteBuffers(1, &rectVBO);
+    glDeleteVertexArrays(1, &VAOBus2D);
+    glDeleteBuffers(1, &VBOBus2D);
+    glDeleteVertexArrays(1, &VAOstations2D);
+    glDeleteBuffers(1, &VBOstations2D);
+    glDeleteVertexArrays(1, &VAOdoors2D);
+    glDeleteBuffers(1, &VBOdoors2D);
+    glDeleteVertexArrays(1, &VAOcontrol2D);
+    glDeleteBuffers(1, &VBOcontrol2D);
+    glDeleteVertexArrays(1, &textVAO);
+    glDeleteBuffers(1, &textVBO);
+
+    for (auto& pd : pathDataList) {
+        glDeleteVertexArrays(1, &pd.VAO);
+        glDeleteBuffers(1, &pd.VBO);
+    }
+
+    glDeleteFramebuffers(1, &fbo);
+    glDeleteTextures(1, &fboTex);
+    glDeleteTextures(1, &signatureTex);
+    glDeleteTextures(1, &bus2DTex);
+    glDeleteTextures(1, &doorsOpenTex);
+    glDeleteTextures(1, &doorsClosedTex);
+    glDeleteTextures(1, &control2DTex);
+    glDeleteTextures(1, &busColorTex);
+    glDeleteTextures(1, &windshieldTex);
+    glDeleteTextures(1, &controlPanelTex);
+    glDeleteTextures(1, &wheelTex);
+    glDeleteTextures(1, &doorTex);
+    glDeleteTextures(1, &lightTex);
+
+    for (auto const& [c, ch] : Characters) {
+        glDeleteTextures(1, &ch.TextureID);
+    }
+
+    glDeleteProgram(simpleTextureShader);
+    glDeleteProgram(bus2DShader);
+    glDeleteProgram(station2DShader);
+    glDeleteProgram(path2DShader);
+    glDeleteProgram(textShader);
+    glDeleteProgram(unifiedShader.ID);
+
+    for (auto m : personModels) delete m;
+    delete controlModel;
 
     glfwDestroyWindow(window);
     glfwTerminate();
