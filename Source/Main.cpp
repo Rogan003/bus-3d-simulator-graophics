@@ -344,6 +344,9 @@ void renderControlPanelToFBO(unsigned int busShader, unsigned int stationShader,
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
 
+    glClearColor(0.2f, 0.2f, 0.2f, 1.0f); // Set a true background color (dark grey)
+    glClear(GL_COLOR_BUFFER_BIT); // Clear previous frame's textures
+
     drawSignature(simpleShader, signatureVAO);
     draw2DStations(stationShader, stationVAO);
     draw2DPaths(pathShader);
@@ -1093,6 +1096,7 @@ int main()
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
 
+        glClearColor(0.3f, 0.4f, 0.8f, 1.0f); // kind of sky color
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         unifiedShader.use();
